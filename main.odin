@@ -8,7 +8,7 @@ import rnd "core:math/rand"
 
 SphereIntersection :: proc(sphere : Sphere, ray : Ray) -> (intersected : bool, res : f32) {
 	L : Vector3 = sphere.center - ray.origin;
-	a : f32 = 1
+	a : f32 = linalg.dot(ray.direction, ray.direction)
 	b : f32 = linalg.dot(ray.direction, L)
 	c : f32 = linalg.dot(L, L) - sphere.r * sphere.r;
 	discr := b * b - a * c
@@ -35,18 +35,20 @@ ClosestHit :: proc(objs : [SPHERE_COUNT]Sphere, ray : Ray) -> (hit : HitInfo) {
 }
 
 Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> (Material) {
-    if depth > MAX_BOUNCE {
-        m : Material = {diffuze = {0, 0, 0, 1}}
-        return m
-    }
+    black : Material : {diffuze = {0, 0, 0, 1}}
+    if depth > MAX_BOUNCE do return black
 
     hit := ClosestHit(spheres, ray_)
     if hit.did_hit {
         ray : Ray
-        if hit.mtl.type == METAL do ray = Reflect(ray_, hit.normal, hit.intersection)
+        if hit.mtl.type == METAL {
+            ray = Reflect(ray_, hit.normal, hit.intersection)
+            ray.direction = linalg.vector_normalize(ray.direction + RandomUnitVector() * hit.mtl.fuzz)
+            if linalg.dot(hit.normal, ray.direction) < 0 do return black
+        }
         if hit.mtl.type == LAMBERTARIAN do ray = RandomReflect(ray_, hit.normal, hit.intersection)
         mtl := Trace(ray, spheres, depth + 1)
-        mtl.diffuze *= hit.mtl.diffuze
+        mtl.diffuze *= hit.mtl.diffuze * 0.8
         return mtl
     }
     return BG_shader(ray_)
@@ -64,39 +66,45 @@ RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COU
                     origin = cam.origin
                 }
                 ray.direction = linalg.vector_normalize(ray.direction)
+                ray.direction = RotateCam(cam, ray.direction)
                 mtl.diffuze += Trace(ray, spheres, 0).diffuze
             }
             mtl.diffuze *= cam.pixel_samples_scale
             Colorize(renderer, mtl, i, j)
-        }
-        fmt.print("\033[H")
-        fmt.println("Render progress:", M.round(f32(j) / f32(WINDOW_H) * 100.0), "/ 100%", )
+            }
+        SDL.RenderPresent(renderer)
+        // fmt.print("\033[H")
+        // fmt.println("Render progress:", M.round(f32(j) / f32(WINDOW_H) * 100.0), "/ 100%", )
     }
 }
 
 main :: proc() {
     cam : Camera = {
 		origin = {0, 0, 0},
-		fl = 1.0 / M.tan_f32(DegToRad(55) * 0.5),
+		fl = 1.0 / M.tan_f32(DegToRad(54.9) * 0.5),
 		samples = 128,
 	}
     spheres : [SPHERE_COUNT]Sphere
     spheres[0] = {
-        center = {-1.1, 0, -7},
-        r = 1,
-        mtl = {diffuze = {0.3, 0.3, 0.3, 1}, emissive = 0, type = METAL}
-        
+        center = {0, -101, -7},
+        r = 100,
+        mtl = {diffuze = {0, 1, 1, 1}, fuzz = 1, type = LAMBERTARIAN}
     }
     spheres[1] = {
-        center = {1, 0, -7},
-        r = 1,
-        mtl = {diffuze = {1, 0, 1, 1}, emissive = 0, type = LAMBERTARIAN}
+        center = {0, -0.5, -7},
+        r = 0.5,
+        mtl = {diffuze = {1, 0, 0, 1}, fuzz = 1, type = LAMBERTARIAN}
         
     }
     spheres[2] = {
-        center = {0, -101, -7},
-        r = 100,
-        mtl = {diffuze = {0, 1, 0, 1}, emissive = 0, type = LAMBERTARIAN}
+        center = {-1, -0.75, -5},
+        r = 0.25,
+        mtl = {diffuze = {0, 1, 0, 1}, fuzz = 0, type = METAL}
+    }
+    spheres[3] = {
+        center = {2, 0, -9},
+        r = 1,
+        mtl = {diffuze = {0, 0, 1, 1}, fuzz = 0.4, type = METAL}   
     }
     cam.pixel_samples_scale = 1 / f32(cam.samples)
     SDL.Init(SDL.INIT_EVERYTHING)
@@ -112,11 +120,13 @@ main :: proc() {
 		SDL.Quit()
 	}
 	event : SDL.Event = ---
-    rendered := false
+	rotate : bool = false
+	start_x : f32 = ---
+	start_y : f32 = ---
+	rendered : = false
     looooop : for {
         if !rendered{
             RayThrower(renderer, cam, spheres)
-            fmt.print("\033[H")
             rendered = true
         }
         SDL.RenderPresent(renderer)
@@ -124,6 +134,26 @@ main :: proc() {
 			#partial switch event.type {
 				case SDL.EventType.QUIT:
 					break looooop
+
+                    case SDL.EventType.MOUSEBUTTONDOWN:
+                        if event.button.button == SDL.BUTTON_LEFT do rotate = true
+                        start_x = (f32(event.button.x) / f32(WINDOW_W) * 2 - 1)
+                        start_y = (f32(event.button.y) / f32(WINDOW_H) * 2 - 1) / ASPECT
+                        
+                    case SDL.EventType.MOUSEMOTION:
+                        if rotate {
+                            current_x, current_y := ConvertScreenToWorld({f32(event.motion.x), f32(event.motion.y)})
+    
+                            cam.angle_y = M.atan2_f32(f32(current_x - start_x), cam.fl)
+                            cam.angle_x = M.atan2_f32(f32(current_y - start_y), cam.fl)
+                            SDL.SetRenderDrawColor(renderer, 0, 0, 0, 255)
+                            SDL.RenderClear(renderer)
+                            rendered = false
+                        }
+                    case SDL.EventType.MOUSEBUTTONUP:
+                        if event.button.button == SDL.BUTTON_LEFT do rotate = false
+
+                
 				case: // default
 			}
 		}

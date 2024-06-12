@@ -29,13 +29,13 @@ Camera :: struct {
 
 Material :: struct {
 	diffuze : color,
-	emissive : f32,
+	fuzz : f32,
 	type : u8
 }
 
 HitInfo :: struct {
 	did_hit : bool,
 	intersection, 
-	normal : Vector3, 
+	normal : Vector3,
 	mtl : Material
 }

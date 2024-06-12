@@ -77,6 +77,38 @@ ConvertScreenToWorld :: proc(v: Vector2) -> (f32, f32) {
 
 // ------- TRANSFORMATION -------
 
+Rotate_x :: proc(angle : f32, vec : Vector3) -> Vector3 {
+	c := M.cos_f32(angle)
+	s := M.sin_f32(angle)
+	m := matrix[3, 3]f32 {
+		1, 0, 0,
+		0, c, -s,
+		0, s, c
+	}
+	res := vec * m
+	return res
+}
+
+Rotate_y :: proc (angle : f32, vec : Vector3) -> Vector3 {
+	c := M.cos_f32(angle)
+	s := M.sin_f32(angle)
+	m := matrix[3, 3]f32 {
+		c, 0, s,
+		0, 1, 0,
+		-s, 0, c
+	}
+	res := vec * m
+	return res
+}
+
+
+RotateCam :: proc (cam : Camera, dir : Vector3) -> (res : Vector3) {
+	res = dir
+	res = Rotate_x(cam.angle_x, res)
+	res = Rotate_y(cam.angle_y, res)
+	return
+}
+
 Reflect :: proc(ray : Ray, normal, intersection : Vector3) -> Ray {
 	dir : = linalg.vector_normalize(ray.direction - 2 * normal * linalg.dot(ray.direction, normal))
 	new : Ray = {origin = intersection + normal * SHADOW_BIAS, direction = dir}
