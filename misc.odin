@@ -28,6 +28,21 @@ LinearToGamma :: proc(comp : f32) -> f32 {
 	return 0
 }
 
+Colorize :: proc(renderer : ^SDL.Renderer, mtl : Material, i, j : i32) {
+	shaded_color : color = {
+		clamp(LinearToGamma(mtl.diffuze.r), 0, 1),
+		clamp(LinearToGamma(mtl.diffuze.g), 0, 1),
+		clamp(LinearToGamma(mtl.diffuze.b), 0, 1),
+		1
+	}
+	SDL.SetRenderDrawColor(renderer, expand(shaded_color))
+	SDL.RenderDrawPoint(
+		renderer,
+		i,
+		WINDOW_H - j
+	)
+}
+
 // ------- CONVERSION ----------
 
 ConvertToProj :: proc(a : Vector3) -> Vector4 {
@@ -64,14 +79,14 @@ ConvertScreenToWorld :: proc(v: Vector2) -> (f32, f32) {
 
 Reflect :: proc(ray : Ray, normal, intersection : Vector3) -> Ray {
 	dir : = linalg.vector_normalize(ray.direction - 2 * normal * linalg.dot(ray.direction, normal))
-	new : Ray = {origin = intersection, direction = dir}
+	new : Ray = {origin = intersection + normal * SHADOW_BIAS, direction = dir}
 	return new
 }
 
 RandomReflect :: proc(ray_ : Ray, normal, intersection : Vector3) -> (res : Ray) {
-	rand_vec : Vector3 = {rnd.float32(), rnd.float32(), rnd.float32()}
-	res.direction = linalg.vector_normalize(rand_vec)
 	res.origin = intersection  + normal * SHADOW_BIAS
+	res.direction = normal + RandomUnitVector()
+	if CloseToZero(res.direction) do res.direction = normal
 	if linalg.dot(res.direction, normal) < 0 do res.direction *= -1
 	return res
 }
@@ -98,4 +113,24 @@ Rotate_x_proj :: proc (angle : f32, m_ : matrix[4, 4]f32) -> matrix[4, 4]f32 {
 		0, 0, 0, 1
 	}
 	return m_ * m
+}
+
+SampleVector :: proc(vec : Vector2) -> Vector2 {
+    sample_square : Vector2 = {
+        rnd.float32() - 0.5,
+        rnd.float32() - 0.5,
+    }
+    return vec + sample_square
+}
+
+// ------ misc ----
+
+CloseToZero :: proc(v : Vector3) -> bool {
+	s : f32 = 1e-8;
+	return (abs(v.x) < s) && (abs(v.y) < s) && (abs(v.z) < s);
+}
+
+RandomUnitVector :: proc() -> Vector3 {
+	rand_vec : Vector3 = {rnd.float32_normal(0.5, 1), rnd.float32_normal(0.5, 1), rnd.float32_normal(0.5, 1)}
+	return linalg.vector_normalize(rand_vec)
 }
