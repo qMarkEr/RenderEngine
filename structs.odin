@@ -18,13 +18,19 @@ Ray :: struct {
 	origin : Vector3
 }
 
+
 Camera :: struct {
+	delta_u, delta_v : f32,
+	w, h : f32,
 	origin : Vector3,
 	fl : f32,
 	angle_x : f32,
 	angle_y : f32,
 	samples : i32,
-	pixel_samples_scale : f32
+	pixel_samples_scale : f32,
+	defocus_disk : Vector2,
+	focus_distance : f32,
+	apperture : f32
 }
 
 Material :: struct {

@@ -166,3 +166,10 @@ RandomUnitVector :: proc() -> Vector3 {
 	rand_vec : Vector3 = {rnd.float32_normal(0.5, 1), rnd.float32_normal(0.5, 1), rnd.float32_normal(0.5, 1)}
 	return linalg.vector_normalize(rand_vec)
 }
+
+RandomOnDisk :: proc() -> Vector2 {
+	for {
+		rand_vec : Vector2 = {rnd.float32_normal(0.5, 1), rnd.float32_normal(0.5, 1)}
+		if linalg.length(rand_vec) < 1 do return rand_vec
+	}
+}
