@@ -28,11 +28,11 @@ LinearToGamma :: proc(comp : f32) -> f32 {
 	return 0
 }
 
-Colorize :: proc(renderer : ^SDL.Renderer, mtl : Material, i, j : i32) {
+Colorize :: proc(renderer : ^SDL.Renderer, mtl : color, i, j : i32) {
 	shaded_color : color = {
-		clamp(LinearToGamma(mtl.diffuze.r), 0, 1),
-		clamp(LinearToGamma(mtl.diffuze.g), 0, 1),
-		clamp(LinearToGamma(mtl.diffuze.b), 0, 1),
+		clamp(LinearToGamma(mtl.r), 0, 1),
+		clamp(LinearToGamma(mtl.g), 0, 1),
+		clamp(LinearToGamma(mtl.b), 0, 1),
 		1
 	}
 	SDL.SetRenderDrawColor(renderer, expand(shaded_color))
@@ -101,12 +101,28 @@ Rotate_y :: proc (angle : f32, vec : Vector3) -> Vector3 {
 	return res
 }
 
-
 RotateCam :: proc (cam : Camera, dir : Vector3) -> (res : Vector3) {
 	res = dir
 	res = Rotate_x(cam.angle_x, res)
 	res = Rotate_y(cam.angle_y, res)
 	return
+}
+
+Refract :: proc (r, n, intersection : Vector3, etha : f32) -> (res : Ray) {
+	cos_theta : f32 = linalg.dot(-r, n)
+
+	perp : Vector3 = etha * (r + cos_theta * n)
+	parl : Vector3 = -linalg.sqrt(abs(1.0 - linalg.dot(perp, perp))) * n
+
+	res.direction = linalg.normalize(perp + parl)
+	res.origin = intersection - n * SHADOW_BIAS
+	return
+}
+
+Reflectance :: proc(cos_, ri : f32) -> f32 {
+	r0 : f32 = (1 - ri) / (1 + ri)
+	r0 *= r0
+	return r0 + (1 - r0) * linalg.pow((1 - cos_), 5.0)
 }
 
 Reflect :: proc(ray : Ray, normal, intersection : Vector3) -> Ray {
@@ -116,10 +132,11 @@ Reflect :: proc(ray : Ray, normal, intersection : Vector3) -> Ray {
 }
 
 RandomReflect :: proc(ray_ : Ray, normal, intersection : Vector3) -> (res : Ray) {
-	res.origin = intersection  + normal * SHADOW_BIAS
+	res.origin = intersection + normal * SHADOW_BIAS
 	res.direction = normal + RandomUnitVector()
 	if CloseToZero(res.direction) do res.direction = normal
 	if linalg.dot(res.direction, normal) < 0 do res.direction *= -1
+	res.direction = linalg.normalize(res.direction)
 	return res
 }
 
@@ -163,13 +180,13 @@ CloseToZero :: proc(v : Vector3) -> bool {
 }
 
 RandomUnitVector :: proc() -> Vector3 {
-	rand_vec : Vector3 = {rnd.float32_normal(0.5, 1), rnd.float32_normal(0.5, 1), rnd.float32_normal(0.5, 1)}
+	rand_vec : Vector3 = {rnd.float32_normal(0, 1), rnd.float32_normal(0, 1), rnd.float32_normal(0, 1)}
 	return linalg.vector_normalize(rand_vec)
 }
 
 RandomOnDisk :: proc() -> Vector2 {
 	for {
-		rand_vec : Vector2 = {rnd.float32_normal(0.5, 1), rnd.float32_normal(0.5, 1)}
+		rand_vec : Vector2 = {rnd.float32_normal(0, 1), rnd.float32_normal(0, 1)}
 		if linalg.length(rand_vec) < 1 do return rand_vec
 	}
 }

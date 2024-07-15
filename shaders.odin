@@ -1,11 +1,8 @@
 package main
 
-BG_shader :: proc(ray_: Ray) -> (mtl : Material) {
+BG_shader :: proc(ray_: Ray) -> color {
     a := 0.5 * (ray_.direction.y + 1.0)
-	mtl = {
-		diffuze=((1 - a) * space_color_bottom + a * space_color_top)
-	}
-	return
+	return ((1 - a) * space_color_bottom + a * space_color_top)
 }
 
 Normal_Shader :: proc(point: Vector3) -> (mtl : Material) {

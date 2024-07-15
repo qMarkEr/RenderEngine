@@ -18,7 +18,6 @@ Ray :: struct {
 	origin : Vector3
 }
 
-
 Camera :: struct {
 	delta_u, delta_v : f32,
 	w, h : f32,
@@ -36,7 +35,8 @@ Camera :: struct {
 Material :: struct {
 	diffuze : color,
 	fuzz : f32,
-	type : u8
+	type : u8,
+	IOR : f32
 }
 
 HitInfo :: struct {

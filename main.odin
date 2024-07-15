@@ -67,7 +67,7 @@ SphereIntersection :: proc(sphere : Sphere, ray : Ray) -> (intersected : bool, r
 	L : Vector3 = sphere.center - ray.origin;
 	a : f32 = linalg.dot(ray.direction, ray.direction)
 	b : f32 = linalg.dot(ray.direction, L)
-	c : f32 = linalg.dot(L, L) - sphere.r * sphere.r;
+	c : f32 = linalg.dot(L, L) - sphere.r * sphere.r
 	discr := b * b - a * c
     root := (b - M.sqrt_f32(discr)) / a
 	if discr < 0 || root < 0 do return false, 0
@@ -91,9 +91,8 @@ ClosestHit :: proc(objs : [SPHERE_COUNT]Sphere, ray : Ray) -> (hit : HitInfo) {
     return
 }
 
-Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> (Material) {
-    black : Material : {diffuze = {0, 0, 0, 1}}
-    if depth > MAX_BOUNCE do return black
+Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color {
+    if depth > MAX_BOUNCE do return {0, 0, 0, 1}
 
     hit := ClosestHit(spheres, ray_)
     if hit.did_hit {
@@ -101,12 +100,26 @@ Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> (Mater
         if hit.mtl.type == METAL {
             ray = Reflect(ray_, hit.normal, hit.intersection)
             ray.direction = linalg.vector_normalize(ray.direction + RandomUnitVector() * hit.mtl.fuzz)
-            if linalg.dot(hit.normal, ray.direction) < 0 do return black
+            if linalg.dot(hit.normal, ray.direction) < 0 do return {0, 0, 0, 1}
         }
+
         if hit.mtl.type == LAMBERTARIAN do ray = RandomReflect(ray_, hit.normal, hit.intersection)
-        mtl := Trace(ray, spheres, depth + 1)
-        mtl.diffuze *= hit.mtl.diffuze * 0.8
-        return mtl
+
+        if hit.mtl.type == DIELECTRIC {
+            ri : f32 = 1.0 / hit.mtl.IOR
+            n := hit.normal
+            if linalg.dot(ray_.direction, hit.normal) > 0.0 {
+                ri = hit.mtl.IOR
+                n = -hit.normal
+            }
+            cos_ := linalg.dot(-ray_.direction, n)
+            sin_ := linalg.sqrt(1 - cos_ * cos_)
+            reflect := ri * sin_ > 1.0 || Reflectance(cos_, ri) > rnd.float32_normal(1,1)
+            if reflect do ray = Reflect(ray_, n, hit.intersection) 
+            else do ray = RandomReflect(ray_, n, hit.intersection)// Refract(ray_.direction, n, hit.intersection, ri)
+            return linalg.lerp(Trace(ray, spheres, depth + 1), hit.mtl.diffuze, linalg.step(Reflectance(cos_, ri), rnd.float32()))
+        }
+        return Trace(ray, spheres, depth + 1) * hit.mtl.diffuze
     }
     return BG_shader(ray_)
 }
@@ -114,7 +127,7 @@ Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> (Mater
 RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COUNT]Sphere) {
     y_loop : for j in 1..=WINDOW_H {
         x_loop : for i in 0..<WINDOW_W {
-            mtl : Material
+            c : color
             antialias : for _ in 0..<cam.samples {
                 v : Vector2 = SampleVector({f32(i), f32(j)})
                 x, y := v.x * cam.delta_u - cam.w * 0.5, v.y * cam.delta_v - cam.h * 0.5 / ASPECT
@@ -127,32 +140,33 @@ RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COU
                 ray.direction.xy -= offset
                 ray.direction = linalg.vector_normalize(ray.direction)
                 ray.direction = RotateCam(cam, ray.direction)
-                mtl.diffuze += Trace(ray, spheres, 0).diffuze
+                
+                c += Trace(ray, spheres, 0)
             }
-            mtl.diffuze *= cam.pixel_samples_scale
-            Colorize(renderer, mtl, i, j)
-            }
+            c *= cam.pixel_samples_scale
+            Colorize(renderer, c, i, j)
+        }
         SDL.RenderPresent(renderer)
     }
 }
 
 main :: proc() {
     cam : Camera = {
-		origin = {-1, 2, 0},
+		// origin = {-1, 2, 0},
         focus_distance = 7.34,
         fl = 35,
-        angle_y = DegToRad(10),
-        angle_x = DegToRad(20),
-		samples = 16,
-        apperture = 1.4
+    //    angle_y = DegToRad(10),
+    //    angle_x = DegToRad(20),
+		samples = 64,
+        apperture = 8
 	}
 
     cam.w = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
     cam.h = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
 
     cam.defocus_disk = { 
-        cam.focus_distance / cam.w / cam.apperture,
-        cam.focus_distance / cam.h / cam.apperture
+        0,
+        0
     }
 
     cam.delta_u = cam.w / f32(WINDOW_W)
@@ -162,17 +176,22 @@ main :: proc() {
     spheres[0] = {
         center = {0, -101, -7},
         r = 100,
-        mtl = {diffuze = {0, 1, 1, 1}, fuzz = 1, type = LAMBERTARIAN}
+        mtl = {diffuze = {0.1, 0.1, 0.1, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
     }
     spheres[1] = {
         center = {0, -0.5, -7},
         r = 0.5,
-        mtl = {diffuze = {1, 0, 0, 1}, fuzz = 1, type = LAMBERTARIAN}
+        mtl = {diffuze = {1, 1, 1, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
     }
+    // spheres[4] = {
+    //     center = {0, -0.5, -7},
+    //     r = 0.4,
+    //     mtl = {diffuze = {1, 1, 1, 1}, fuzz = 0, type = DIELECTRIC, IOR = 1 / 1.5}
+    // }
     spheres[2] = {
         center = {-1, -0.75, -5},
         r = 0.25,
-        mtl = {diffuze = {0, 1, 0, 1}, fuzz = 0, type = METAL}
+        mtl = {diffuze = {1, 0, 0, 1}, fuzz = 0, type = LAMBERTARIAN}
     }
     spheres[3] = {
         center = {2, 0, -9},
@@ -201,9 +220,9 @@ main :: proc() {
     looooop : for {
         if !rendered{
             RayThrower(renderer, cam, spheres)
-            DrawAxis(renderer, {1, 0, 0}, cam)
-            DrawAxis(renderer, {0, 1, 0}, cam)
-            DrawAxis(renderer, {0, 0, 1}, cam)
+            // DrawAxis(renderer, {1, 0, 0}, cam)
+            // DrawAxis(renderer, {0, 1, 0}, cam)
+            // DrawAxis(renderer, {0, 0, 1}, cam)
             rendered = true
             fmt.println(SDL.GetTicks() - start_time)
         }

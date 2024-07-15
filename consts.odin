@@ -30,5 +30,6 @@ MAX_BOUNCE :: 4
 
 LAMBERTARIAN :: 0
 METAL :: 1
+DIELECTRIC :: 2
 
 vup : Vector3 : {0, 1, 0}
