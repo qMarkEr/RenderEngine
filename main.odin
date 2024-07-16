@@ -106,18 +106,31 @@ Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color 
         if hit.mtl.type == LAMBERTARIAN do ray = RandomReflect(ray_, hit.normal, hit.intersection)
 
         if hit.mtl.type == DIELECTRIC {
-            ri : f32 = 1.0 / hit.mtl.IOR
-            n := hit.normal
-            if linalg.dot(ray_.direction, hit.normal) > 0.0 {
-                ri = hit.mtl.IOR
-                n = -hit.normal
-            }
-            cos_ := linalg.dot(-ray_.direction, n)
-            sin_ := linalg.sqrt(1 - cos_ * cos_)
-            reflect := ri * sin_ > 1.0 || Reflectance(cos_, ri) > rnd.float32_normal(1,1)
-            if reflect do ray = Reflect(ray_, n, hit.intersection) 
-            else do ray = RandomReflect(ray_, n, hit.intersection)// Refract(ray_.direction, n, hit.intersection, ri)
-            return linalg.lerp(Trace(ray, spheres, depth + 1), hit.mtl.diffuze, linalg.step(Reflectance(cos_, ri), rnd.float32()))
+            kr := Fresnel(ray_.direction, hit.normal, hit.mtl.IOR)
+            refr, refl : color
+            // if kr < 1 { 
+            //     refr_ray : Ray = Refract(ray_.direction, hit.normal, hit.intersection, hit.mtl.IOR)
+            //     refr = Trace(refr_ray, spheres, depth + 1)
+            // }
+            refl_ray : Ray = Reflect(ray_, hit.normal, hit.intersection)
+            refl = Trace(refl_ray, spheres, depth + 1)
+            ref_ray := RandomReflect(ray_, hit.normal, hit.intersection)
+            refr = Trace(ref_ray, spheres, depth + 1) * hit.mtl.diffuze
+            return (refl * kr + refr * (1 - kr)) 
+            // ri : f32 = 1.0 / hit.mtl.IOR
+            // n := hit.normal
+            // if linalg.dot(ray_.direction, hit.normal) > 0.0 {
+            //     ri = hit.mtl.IOR
+            //     n = -hit.normal
+            // }
+            // cos_ := linalg.dot(-ray_.direction, n)
+            // sin_ := linalg.sqrt(1 - cos_ * cos_)
+            // reflect := ri * sin_ > 1.0 || Reflectance(cos_, ri) > rnd.float32_normal(1,1)
+            // // if reflect do ray = Reflect(ray_, n, hit.intersection) 
+            // // else do ray = RandomReflect(ray_, n, hit.intersection)// Refract(ray_.direction, n, hit.intersection, ri)
+            // ray.direction = linalg.lerp(Reflect(ray_, n, hit.intersection).direction, RandomReflect(ray_, n, hit.intersection).direction, linalg.step(Reflectance(cos_, ri), rnd.float32()))
+            // ray.origin = hit.intersection + hit.normal * SHADOW_BIAS
+            // return linalg.lerp(Trace(ray, spheres, depth + 1), hit.mtl.diffuze, linalg.step(Reflectance(cos_, ri), rnd.float32()))
         }
         return Trace(ray, spheres, depth + 1) * hit.mtl.diffuze
     }
@@ -152,12 +165,12 @@ RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COU
 
 main :: proc() {
     cam : Camera = {
-		// origin = {-1, 2, 0},
+		origin = {-1, 2, 0},
         focus_distance = 7.34,
         fl = 35,
-    //    angle_y = DegToRad(10),
-    //    angle_x = DegToRad(20),
-		samples = 64,
+       angle_y = DegToRad(10),
+       angle_x = DegToRad(20),
+		samples = 8,
         apperture = 8
 	}
 
@@ -176,18 +189,13 @@ main :: proc() {
     spheres[0] = {
         center = {0, -101, -7},
         r = 100,
-        mtl = {diffuze = {0.1, 0.1, 0.1, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
+        mtl = {diffuze = {0.1, 0.1, 0.1, 1}, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5}
     }
     spheres[1] = {
         center = {0, -0.5, -7},
         r = 0.5,
-        mtl = {diffuze = {1, 1, 1, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
+        mtl = {diffuze = {0, 0, 0, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
     }
-    // spheres[4] = {
-    //     center = {0, -0.5, -7},
-    //     r = 0.4,
-    //     mtl = {diffuze = {1, 1, 1, 1}, fuzz = 0, type = DIELECTRIC, IOR = 1 / 1.5}
-    // }
     spheres[2] = {
         center = {-1, -0.75, -5},
         r = 0.25,

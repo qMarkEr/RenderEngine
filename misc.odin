@@ -108,15 +108,47 @@ RotateCam :: proc (cam : Camera, dir : Vector3) -> (res : Vector3) {
 	return
 }
 
-Refract :: proc (r, n, intersection : Vector3, etha : f32) -> (res : Ray) {
-	cos_theta : f32 = linalg.dot(-r, n)
+// Refract :: proc (r, n, intersection : Vector3, etha : f32) -> (res : Ray) {
+// 	cos_theta : f32 = linalg.dot(-r, n)
 
-	perp : Vector3 = etha * (r + cos_theta * n)
-	parl : Vector3 = -linalg.sqrt(abs(1.0 - linalg.dot(perp, perp))) * n
+// 	perp : Vector3 = etha * (r + cos_theta * n)
+// 	parl : Vector3 = -linalg.sqrt(abs(1.0 - linalg.dot(perp, perp))) * n
 
-	res.direction = linalg.normalize(perp + parl)
-	res.origin = intersection - n * SHADOW_BIAS
+// 	res.direction = linalg.normalize(perp + parl)
+// 	res.origin = intersection - n * SHADOW_BIAS
+// 	return
+// }
+Refract :: proc(r, n, intersection : Vector3, ior : f32) -> (res : Ray) {
+	cosi := linalg.clamp(linalg.dot(r, n), -1, 1)
+	etai, etat : f32 = 1.0, ior
+	normal := n
+	if cosi < 0 do cosi = -cosi
+	else {
+		normal = -n
+		etai, etat = etat, etai
+	}
+	eta : f32 = etai / etat
+	k := 1 - eta * eta * (1.0 - cosi * cosi)
+	if k >= 0 {
+		res.direction = eta * r + (eta * cosi - linalg.sqrt(k)) * n;
+		res.origin = intersection - n * SHADOW_BIAS
+	}
 	return
+}
+
+Fresnel :: proc(r, n : Vector3, ior : f32) -> f32 {
+	cosi := linalg.clamp(linalg.dot(r, n), -1, 1)
+	etai, etat : f32 = 1.0, ior
+	normal := n
+	if cosi > 0 do etai, etat = etat, etai
+	sint := etai / etat * linalg.sqrt(max(0.0, 1.0 - cosi * cosi));
+	if sint >= 1 do return 1.0
+
+	cost := linalg.sqrt(max(0.0, 1.0 - sint * sint))
+	cosi = abs(cosi)
+	Rs := ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost));
+	Rp := ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost));
+	return (Rs * Rs + Rp * Rp) / 2.0;
 }
 
 Reflectance :: proc(cos_, ri : f32) -> f32 {
