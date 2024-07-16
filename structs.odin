@@ -35,8 +35,9 @@ Camera :: struct {
 Material :: struct {
 	diffuze : color,
 	fuzz : f32,
-	type : u8,
-	IOR : f32
+	IOR : f32,
+	transmission : f32,
+	metallic : f32
 }
 
 HitInfo :: struct {
