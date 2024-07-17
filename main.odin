@@ -108,14 +108,12 @@ Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color 
         if hit.mtl.type == DIELECTRIC {
             kr := Fresnel(ray_.direction, hit.normal, hit.mtl.IOR)
             refr, refl : color
-            // if kr < 1 { 
-            //     refr_ray : Ray = Refract(ray_.direction, hit.normal, hit.intersection, hit.mtl.IOR)
-            //     refr = Trace(refr_ray, spheres, depth + 1)
-            // }
+            if kr < 1 { 
+                refr_ray : Ray = Refract(ray_.direction, hit.normal, hit.intersection, hit.mtl.IOR)
+                refr = Trace(refr_ray, spheres, depth + 1)
+            }
             refl_ray : Ray = Reflect(ray_, hit.normal, hit.intersection)
             refl = Trace(refl_ray, spheres, depth + 1)
-            ref_ray := RandomReflect(ray_, hit.normal, hit.intersection)
-            refr = Trace(ref_ray, spheres, depth + 1) * hit.mtl.diffuze
             return (refl * kr + refr * (1 - kr)) 
             // ri : f32 = 1.0 / hit.mtl.IOR
             // n := hit.normal
