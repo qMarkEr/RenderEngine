@@ -5,6 +5,15 @@ import SDL "vendor:sdl2"
 import M "core:math"
 import "core:math/linalg"
 import rnd "core:math/rand"
+import "core:thread"
+import "core:time"
+import "core:sync"
+
+cam : Camera
+spheres : [SPHERE_COUNT]Sphere
+window : ^SDL.Window
+renderer : ^SDL.Renderer
+frame : [WINDOW_W + 1][WINDOW_H + 1]color
 
 Interpolate :: proc(renderer : ^SDL.Renderer, a_, b_ : Vector2i) {
 	a := a_
@@ -115,29 +124,19 @@ Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color 
             refl_ray : Ray = Reflect(ray_, hit.normal, hit.intersection)
             refl = Trace(refl_ray, spheres, depth + 1)
             return (refl * kr + refr * (1 - kr)) 
-            // ri : f32 = 1.0 / hit.mtl.IOR
-            // n := hit.normal
-            // if linalg.dot(ray_.direction, hit.normal) > 0.0 {
-            //     ri = hit.mtl.IOR
-            //     n = -hit.normal
-            // }
-            // cos_ := linalg.dot(-ray_.direction, n)
-            // sin_ := linalg.sqrt(1 - cos_ * cos_)
-            // reflect := ri * sin_ > 1.0 || Reflectance(cos_, ri) > rnd.float32_normal(1,1)
-            // // if reflect do ray = Reflect(ray_, n, hit.intersection) 
-            // // else do ray = RandomReflect(ray_, n, hit.intersection)// Refract(ray_.direction, n, hit.intersection, ri)
-            // ray.direction = linalg.lerp(Reflect(ray_, n, hit.intersection).direction, RandomReflect(ray_, n, hit.intersection).direction, linalg.step(Reflectance(cos_, ri), rnd.float32()))
-            // ray.origin = hit.intersection + hit.normal * SHADOW_BIAS
-            // return linalg.lerp(Trace(ray, spheres, depth + 1), hit.mtl.diffuze, linalg.step(Reflectance(cos_, ri), rnd.float32()))
         }
         return Trace(ray, spheres, depth + 1) * hit.mtl.diffuze
     }
     return BG_shader(ray_)
 }
 
-RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COUNT]Sphere) {
-    y_loop : for j in 1..=WINDOW_H {
-        x_loop : for i in 0..<WINDOW_W {
+RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COUNT]Sphere, index : i32) {
+    x_S := BUCKET_SIZE * (i32(index) % SIDE)
+    x_E := BUCKET_SIZE * (i32(index) % SIDE + 1)
+    y_S := BUCKET_SIZE * (i32(index) / SIDE)
+    y_E := BUCKET_SIZE * (i32(index) / SIDE + 1)
+    y_loop : for j in y_S..=y_E {
+        x_loop : for i in x_S..<x_E {
             c : color
             antialias : for _ in 0..<cam.samples {
                 v : Vector2 = SampleVector({f32(i), f32(j)})
@@ -157,18 +156,70 @@ RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COU
             c *= cam.pixel_samples_scale
             Colorize(renderer, c, i, j)
         }
-        SDL.RenderPresent(renderer)
     }
 }
 
+OneThreadRayThrower :: proc (t : ^thread.Thread) {
+    RayThrower(renderer, cam, spheres, i32(t.user_index))
+}
+
+
+
+MultitheadRayThrower :: proc() {
+    threadPool := make([dynamic]^thread.Thread, 0, THREADS)
+    defer delete(threadPool)
+    for i in 0..<THREADS {
+        thr := thread.create(OneThreadRayThrower) // creating a thread
+            if thr != nil {
+            // setting up context for our thread
+            thr.init_context = context
+            // giving our thread id
+            thr.user_index = i
+            // Adding our thread to thread pool
+            append(&threadPool, thr) 
+
+            thread.start(thr) // running our thread
+        }
+    }
+    ctr : i32 = 0
+    for len(threadPool) > 0 {
+        for i := 0; i < len(threadPool); {
+            // Getting a threads address at index i
+            t := threadPool[i]
+            if thread.is_done(t) {
+                ctr += 1
+                fmt.print(ctr, "/36\n")
+                thread.destroy(t)
+                // removing address of destroyed thread from out pool
+                ordered_remove(&threadPool, i)
+            } else {
+                // If current thread process is not done then go to next one
+                i += 1 
+            }
+        }
+    }
+    for i in 0..=WINDOW_W {
+        for j in 0..=WINDOW_H {
+            SDL.SetRenderDrawColor(renderer, expand(frame[i][j]))
+            SDL.RenderDrawPoint(
+                renderer,
+                i32(i),
+                i32(j)
+            )
+        }
+    }
+    SDL.RenderPresent(renderer)
+}
+
+
 main :: proc() {
-    cam : Camera = {
+    cam = {
 		origin = {-1, 2, 0},
         focus_distance = 7.34,
         fl = 35,
-       angle_y = DegToRad(10),
-       angle_x = DegToRad(20),
-		samples = 8,
+        angle_y = DegToRad(10),
+        angle_x = DegToRad(20),
+		samples = 128,
         apperture = 8
 	}
 
@@ -183,7 +234,7 @@ main :: proc() {
     cam.delta_u = cam.w / f32(WINDOW_W)
     cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT
 
-    spheres : [SPHERE_COUNT]Sphere
+    // spheres : [SPHERE_COUNT]Sphere
     spheres[0] = {
         center = {0, -101, -7},
         r = 100,
@@ -206,8 +257,8 @@ main :: proc() {
     }
     cam.pixel_samples_scale = 1 / f32(cam.samples)
     SDL.Init(SDL.INIT_EVERYTHING)
-    window := SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H, WINDOW_FLAGS)
-    renderer := SDL.CreateRenderer(
+    window = SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H, WINDOW_FLAGS)
+    renderer = SDL.CreateRenderer(
     	window,
     	-1,
     	SDL.RENDERER_PRESENTVSYNC | SDL.RENDERER_ACCELERATED | SDL.RENDERER_TARGETTEXTURE
@@ -225,7 +276,8 @@ main :: proc() {
     start_time := SDL.GetTicks()
     looooop : for {
         if !rendered{
-            RayThrower(renderer, cam, spheres)
+            MultitheadRayThrower()
+            // RayThrower(renderer, cam, spheres)
             // DrawAxis(renderer, {1, 0, 0}, cam)
             // DrawAxis(renderer, {0, 1, 0}, cam)
             // DrawAxis(renderer, {0, 0, 1}, cam)
@@ -237,7 +289,7 @@ main :: proc() {
 			#partial switch event.type {
 				case SDL.EventType.QUIT:
 					break looooop
-
+                    
                     // case SDL.EventType.MOUSEBUTTONDOWN:
                     //     if event.button.button == SDL.BUTTON_LEFT do rotate = true
                     //     start_x = (f32(event.button.x) / f32(WINDOW_W) * 2 - 1)

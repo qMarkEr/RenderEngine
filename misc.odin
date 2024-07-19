@@ -35,12 +35,13 @@ Colorize :: proc(renderer : ^SDL.Renderer, mtl : color, i, j : i32) {
 		clamp(LinearToGamma(mtl.b), 0, 1),
 		1
 	}
-	SDL.SetRenderDrawColor(renderer, expand(shaded_color))
-	SDL.RenderDrawPoint(
-		renderer,
-		i,
-		WINDOW_H - j
-	)
+	// SDL.SetRenderDrawColor(renderer, expand(shaded_color))
+	// SDL.RenderDrawPoint(
+	// 	renderer,
+	// 	i,
+	// 	WINDOW_H - j
+	// )
+	frame[i][WINDOW_H - j] = shaded_color
 }
 
 // ------- CONVERSION ----------
@@ -119,18 +120,18 @@ RotateCam :: proc (cam : Camera, dir : Vector3) -> (res : Vector3) {
 // 	return
 // }
 Refract :: proc(r, n, intersection : Vector3, ior : f32) -> (res : Ray) {
-	cosi := linalg.clamp(linalg.dot(r, n), -1, 1)
+	cosi := linalg.dot(r, n)
 	etai, etat : f32 = 1.0, ior
 	normal := n
 	if cosi < 0 do cosi = -cosi
 	else {
-		normal = -n
+		normal = -normal
 		etai, etat = etat, etai
 	}
 	eta : f32 = etai / etat
 	k := 1 - eta * eta * (1.0 - cosi * cosi)
 	if k >= 0 {
-		res.direction = eta * r + (eta * cosi - linalg.sqrt(k)) * n;
+		res.direction = linalg.vector_normalize(eta * r + (eta * cosi - linalg.sqrt(k)) * normal);
 		res.origin = intersection - n * SHADOW_BIAS
 	}
 	return
