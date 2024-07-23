@@ -1,6 +1,7 @@
 package main
 
 import SDL "vendor:sdl2"
+import "core:os"
 
 BG_COLOR_TOP : int = 0xEE964B //  0x000000
 FG_COLOR_1 : int = 0x75DDDD
@@ -20,7 +21,7 @@ WINDOW_Y : i32 = SDL.WINDOWPOS_CENTERED
 WINDOW_W : i32 : 720
 WINDOW_H : i32 : 720
 BUCKET_SIZE :: WINDOW_W / SIDE
-SIDE :: 6
+SIDE :: 10
 ASPECT : f32 : f32(WINDOW_W) / f32(WINDOW_H)
 
 WINDOW_FLAGS  :: SDL.WINDOW_SHOWN
@@ -29,7 +30,7 @@ SHADOW_BIAS :: 0.0001
 AXIS_OFFSET :: 0.35
 AXIS_LENGTH :: 10
 MAX_BOUNCE :: 50
-THREADS :: 36
+THREADS := SIDE * SIDE //os.processor_core_count()
 LAMBERTARIAN :: 0
 METAL :: 1
 DIELECTRIC :: 2

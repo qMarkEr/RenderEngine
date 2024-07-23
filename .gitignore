@@ -2,4 +2,4 @@
 *.json
 build
 .vscode
-*.blend
+*.blend*

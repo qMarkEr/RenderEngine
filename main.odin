@@ -130,11 +130,11 @@ Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color 
     return BG_shader(ray_)
 }
 
-RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COUNT]Sphere, index : i32) {
-    x_S := BUCKET_SIZE * (i32(index) % SIDE)
-    x_E := BUCKET_SIZE * (i32(index) % SIDE + 1)
-    y_S := BUCKET_SIZE * (i32(index) / SIDE)
-    y_E := BUCKET_SIZE * (i32(index) / SIDE + 1)
+RayThrower :: proc(t : ^thread.Thread) {
+    x_S := BUCKET_SIZE * (i32(t.user_index) % SIDE)
+    x_E := BUCKET_SIZE * (i32(t.user_index) % SIDE + 1)
+    y_S := BUCKET_SIZE * (i32(t.user_index) / SIDE)
+    y_E := BUCKET_SIZE * (i32(t.user_index) / SIDE + 1)
     y_loop : for j in y_S..=y_E {
         x_loop : for i in x_S..<x_E {
             c : color
@@ -159,8 +159,42 @@ RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COU
     }
 }
 
-OneThreadRayThrower :: proc (t : ^thread.Thread) {
-    RayThrower(renderer, cam, spheres, i32(t.user_index))
+OneThreadRayThrower :: proc () {
+    antialias : for k in 1..=cam.samples {
+        c : color
+        y_loop : for j in 0..=WINDOW_H {
+            x_loop : for i in 0..<WINDOW_W {
+                v : Vector2 = SampleVector({f32(i), f32(j)})
+                x, y := v.x * cam.delta_u - cam.w * 0.5, v.y * cam.delta_v - cam.h * 0.5 / ASPECT
+                ray : Ray = {
+                    direction = ({x, y, - cam.focus_distance}),
+                    origin = cam.origin
+                }
+                offset := RandomOnDisk() * cam.defocus_disk
+                ray.origin.xy += offset
+                ray.direction.xy -= offset
+                ray.direction = linalg.vector_normalize(ray.direction)
+                ray.direction = RotateCam(cam, ray.direction)
+                
+                frame[i][WINDOW_H - j] *= f32(k - 1)
+                frame[i][WINDOW_H - j] += Trace(ray, spheres, 0)
+                frame[i][WINDOW_H - j] *= 1.0 / f32(k)
+                frame[i][WINDOW_H - j] = {
+                    clamp(LinearToGamma(frame[i][WINDOW_H - j].r), 0, 1),
+                    clamp(LinearToGamma(frame[i][WINDOW_H - j].g), 0, 1),
+                    clamp(LinearToGamma(frame[i][WINDOW_H - j].b), 0, 1),
+                    1
+                }
+                SDL.SetRenderDrawColor(renderer, expand(frame[i][WINDOW_H - j]))
+                SDL.RenderDrawPoint(
+                    renderer,
+                    i,
+                    WINDOW_H - j
+                )
+            }
+        }
+        SDL.RenderPresent(renderer)
+    }
 }
 
 
@@ -169,7 +203,7 @@ MultitheadRayThrower :: proc() {
     threadPool := make([dynamic]^thread.Thread, 0, THREADS)
     defer delete(threadPool)
     for i in 0..<THREADS {
-        thr := thread.create(OneThreadRayThrower) // creating a thread
+        thr := thread.create(RayThrower) // creating a thread
             if thr != nil {
             // setting up context for our thread
             thr.init_context = context
@@ -188,7 +222,7 @@ MultitheadRayThrower :: proc() {
             t := threadPool[i]
             if thread.is_done(t) {
                 ctr += 1
-                fmt.print(ctr, "/36\n")
+                // fmt.print(ctr, "/36\n")
                 thread.destroy(t)
                 // removing address of destroyed thread from out pool
                 ordered_remove(&threadPool, i)
@@ -219,7 +253,7 @@ main :: proc() {
         fl = 35,
         angle_y = DegToRad(10),
         angle_x = DegToRad(20),
-		samples = 128,
+		samples = 32,
         apperture = 8
 	}
 
@@ -277,7 +311,7 @@ main :: proc() {
     looooop : for {
         if !rendered{
             MultitheadRayThrower()
-            // RayThrower(renderer, cam, spheres)
+            // OneThreadRayThrower()
             // DrawAxis(renderer, {1, 0, 0}, cam)
             // DrawAxis(renderer, {0, 1, 0}, cam)
             // DrawAxis(renderer, {0, 0, 1}, cam)
@@ -290,23 +324,23 @@ main :: proc() {
 				case SDL.EventType.QUIT:
 					break looooop
                     
-                    // case SDL.EventType.MOUSEBUTTONDOWN:
-                    //     if event.button.button == SDL.BUTTON_LEFT do rotate = true
-                    //     start_x = (f32(event.button.x) / f32(WINDOW_W) * 2 - 1)
-                    //     start_y = (f32(event.button.y) / f32(WINDOW_H) * 2 - 1) / ASPECT
+                    case SDL.EventType.MOUSEBUTTONDOWN:
+                        if event.button.button == SDL.BUTTON_LEFT do rotate = true
+                        start_x = (f32(event.button.x) / f32(WINDOW_W) * 2 - 1)
+                        start_y = (f32(event.button.y) / f32(WINDOW_H) * 2 - 1) / ASPECT
                         
-                    // case SDL.EventType.MOUSEMOTION:
-                    //     if rotate {
-                    //         current_x, current_y := ConvertScreenToWorld({f32(event.motion.x), f32(event.motion.y)})
+                    case SDL.EventType.MOUSEMOTION:
+                        if rotate {
+                            current_x, current_y := ConvertScreenToWorld({f32(event.motion.x), f32(event.motion.y)})
     
-                    //         cam.angle_y = M.atan2_f32(f32(current_x - start_x), cam.fl)
-                    //         cam.angle_x = M.atan2_f32(f32(current_y - start_y), cam.fl)
-                    //         SDL.SetRenderDrawColor(renderer, 0, 0, 0, 255)
-                    //         SDL.RenderClear(renderer)
-                    //         rendered = false
-                    //     }
-                    // case SDL.EventType.MOUSEBUTTONUP:
-                    //     if event.button.button == SDL.BUTTON_LEFT do rotate = false
+                            cam.angle_y += M.atan2_f32(f32(current_x - start_x), cam.fl)
+                            cam.angle_x += M.atan2_f32(f32(current_y - start_y), cam.fl)
+                            SDL.SetRenderDrawColor(renderer, 0, 0, 0, 255)
+                            SDL.RenderClear(renderer)
+                            rendered = false
+                        }
+                    case SDL.EventType.MOUSEBUTTONUP:
+                        if event.button.button == SDL.BUTTON_LEFT do rotate = false
 
                 
 				case: // default
