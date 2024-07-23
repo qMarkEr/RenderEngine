@@ -97,48 +97,33 @@ Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color 
     hit := ClosestHit(spheres, ray_)
     if hit.did_hit {
         ray : Ray
-            kr := Fresnel(ray_.direction, hit.normal, hit.mtl.IOR)
-            refr, refl : color
-            if kr < 1 {
-                refr_ray : Ray = Refract(ray_.direction, hit.normal, hit.intersection, hit.mtl.IOR)
-                refr_ray.direction = linalg.lerp(
-                    RandomReflect(ray_, hit.normal, hit.intersection).direction,
-                    refr_ray.direction,
-                    hit.mtl.transmission
-                )
-                refr = Trace(refr_ray, spheres, depth + 1) * hit.mtl.diffuze
-            }
-            refl_ray : Ray = Reflect(ray_, hit.normal, hit.intersection)
-            refl_ray.direction = linalg.lerp(
-                refl_ray.direction,
-                RandomReflect(ray_, hit.normal, hit.intersection).direction,
-                hit.mtl.fuzz
-            )
-            refl = Trace(refl_ray, spheres, depth + 1) // * (1 - hit.mtl.fuzz)
-            return linalg.lerp(
-                linalg.lerp(refr, refl, kr * (1 - hit.mtl.fuzz)),
-                refl * hit.mtl.diffuze,
-                hit.mtl.metallic
-            ) 
-            
+        kr := Fresnel(ray_.direction, hit.normal, hit.mtl.IOR)
+        refr, refl : color
+        diff : Ray = Refract(ray_.direction, hit.normal, hit.intersection, hit.mtl.IOR)
+        spec : Ray = Reflect(ray_, hit.normal, hit.intersection)
 
-           /* ri : f32 = 1.0 / hit.mtl.IOR
-            n := hit.normal
-            if linalg.dot(ray_.direction, hit.normal) > 0.0 {
-                ri = hit.mtl.IOR
-                n = -hit.normal
-            }
-            cos_ := linalg.dot(-ray_.direction, n)
-            sin_ := linalg.sqrt(1 - cos_ * cos_)
-            reflect := ri * sin_ > 1.0 || Reflectance(cos_, ri) > rnd.float32_normal(1,1)
-            // if reflect do ray = Reflect(ray_, n, hit.intersection) 
-            // else do ray = RandomReflect(ray_, n, hit.intersection)// Refract(ray_.direction, n, hit.intersection, ri)
-            ray.direction = linalg.lerp(Reflect(ray_, n, hit.intersection).direction, RandomReflect(ray_, n, hit.intersection).direction, linalg.step(Reflectance(cos_, ri), rnd.float32()))
-            ray.origin = hit.intersection + hit.normal * SHADOW_BIAS
-            return linalg.lerp(Trace(ray, spheres, depth + 1), hit.mtl.diffuze, 
-            linalg.step(Reflectance(cos_, ri), rnd.float32()))*/
+        if kr < 1 - hit.mtl.metallic {
+            diff.direction = linalg.lerp(
+                RandomReflect(ray_, hit.normal, hit.intersection).direction,
+                diff.direction,
+                hit.mtl.transmission
+            )
+            refr = Trace(diff, spheres, depth + 1) * hit.mtl.diffuze
+        }
+
+        spec.direction = linalg.lerp(
+            spec.direction,
+            diff.direction,
+            hit.mtl.fuzz
+        )
+
+        refl = Trace(spec, spheres, depth + 1)
         
-        // return Trace(ray, spheres, depth + 1) * hit.mtl.diffuze
+        return linalg.lerp(
+            linalg.lerp(refr, refl, kr * (1 - hit.mtl.fuzz)),
+            refl * hit.mtl.diffuze,
+            hit.mtl.metallic
+        )
     }
     return BG_shader(ray_)
 }
@@ -201,11 +186,11 @@ main :: proc() {
         center = {0, -0.5, -7},
         r = 0.5,
         mtl = {
-            diffuze = {1, 0, 0, 1},
-            fuzz = 0.0, 
+            diffuze = {0, 0, 0, 1},
+            fuzz = 0.5, 
             IOR = 1.5,
             transmission = 0.0,
-            metallic = 0.5
+            metallic = 0
         }
     }
     spheres[2] = {
