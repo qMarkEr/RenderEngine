@@ -35,12 +35,13 @@ Colorize :: proc(renderer : ^SDL.Renderer, mtl : color, i, j : i32) {
 		clamp(LinearToGamma(mtl.b), 0, 1),
 		1
 	}
-	SDL.SetRenderDrawColor(renderer, expand(shaded_color))
-	SDL.RenderDrawPoint(
-		renderer,
-		i,
-		WINDOW_H - j
-	)
+	frame[i][WINDOW_H - j] = shaded_color
+	// SDL.SetRenderDrawColor(renderer, expand(shaded_color))
+	// SDL.RenderDrawPoint(
+	// 	renderer,
+	// 	i,
+	// 	WINDOW_H - j
+	// )
 }
 
 // ------- CONVERSION ----------

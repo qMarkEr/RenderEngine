@@ -11,7 +11,7 @@ cam : Camera
 spheres : [SPHERE_COUNT]Sphere
 window : ^SDL.Window
 renderer : ^SDL.Renderer
-frame : [WINDOW_H + 1][WINDOW_W + 1]color
+frame : [WINDOW_W + 1][WINDOW_H + 1]color
 
 Interpolate :: proc(renderer : ^SDL.Renderer, a_, b_ : Vector2i) {
 	a := a_
