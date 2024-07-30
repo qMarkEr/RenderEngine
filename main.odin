@@ -154,8 +154,99 @@ RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COU
     }
 }
 
+OneThreadRayThrower :: proc () {
+    antialias : for k in 1..=cam.samples {
+        c : color
+        y_loop : for j in 0..=WINDOW_H {
+            x_loop : for i in 0..<WINDOW_W {
+                v : Vector2 = SampleVector({f32(i), f32(j)})
+                x, y := v.x * cam.delta_u - cam.w * 0.5, v.y * cam.delta_v - cam.h * 0.5 / ASPECT
+                ray : Ray = {
+                    direction = ({x, y, - cam.focus_distance}),
+                    origin = cam.origin
+                }
+                offset := RandomOnDisk() * cam.defocus_disk
+                ray.origin.xy += offset
+                ray.direction.xy -= offset
+                ray.direction = linalg.vector_normalize(ray.direction)
+                ray.direction = RotateCam(cam, ray.direction)
+                
+                frame[i][WINDOW_H - j] *= f32(k - 1)
+                frame[i][WINDOW_H - j] += Trace(ray, spheres, 0)
+                frame[i][WINDOW_H - j] *= 1.0 / f32(k)
+                frame[i][WINDOW_H - j] = {
+                    clamp(LinearToGamma(frame[i][WINDOW_H - j].r), 0, 1),
+                    clamp(LinearToGamma(frame[i][WINDOW_H - j].g), 0, 1),
+                    clamp(LinearToGamma(frame[i][WINDOW_H - j].b), 0, 1),
+                    1
+                }
+                SDL.SetRenderDrawColor(renderer, expand(frame[i][WINDOW_H - j]))
+                SDL.RenderDrawPoint(
+                    renderer,
+                    i,
+                    WINDOW_H - j
+                )
+            }
+        }
+        SDL.RenderPresent(renderer)
+    }
+}
+
+
+
+MultitheadRayThrower :: proc() {
+    threadPool := make([dynamic]^thread.Thread, 0, THREADS)
+    defer delete(threadPool)
+    for i in 0..<THREADS {
+        thr := thread.create(RayThrower) // creating a thread
+            if thr != nil {
+            // setting up context for our thread
+            thr.init_context = context
+            // giving our thread id
+            thr.user_index = i
+            // Adding our thread to thread pool
+            append(&threadPool, thr) 
+
+            thread.start(thr) // running our thread
+        }
+    }
+    ctr : i32 = 0
+    for len(threadPool) > 0 {
+        for i := 0; i < len(threadPool); {
+            // Getting a threads address at index i
+            t := threadPool[i]
+            if thread.is_done(t) {
+                ctr += 1
+                // fmt.print(ctr, "/36\n")
+                thread.destroy(t)
+                // removing address of destroyed thread from out pool
+                ordered_remove(&threadPool, i)
+            } else {
+                // If current thread process is not done then go to next one
+                i += 1 
+            }
+        }
+    }
+    for i in 0..=WINDOW_W {
+        for j in 0..=WINDOW_H {
+            SDL.SetRenderDrawColor(renderer, expand(frame[i][j]))
+            SDL.RenderDrawPoint(
+                renderer,
+                i32(i),
+                i32(j)
+            )
+        }
+    }
+    SDL.RenderPresent(renderer)
+}
+
+cam : Camera
+spheres : [SPHERE_COUNT]Sphere
+window : SDL.Window
+renderer : SDL.Renderer
+
 main :: proc() {
-    cam : Camera = {
+    cam = {
 		origin = {-1, 2, 0},
         focus_distance = 7.34,
         fl = 35,
@@ -176,7 +267,7 @@ main :: proc() {
     cam.delta_u = cam.w / f32(WINDOW_W)
     cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT
 
-    spheres : [SPHERE_COUNT]Sphere
+   
     spheres[0] = {
         center = {0, -101, -7},
         r = 100,
@@ -205,8 +296,8 @@ main :: proc() {
     }
     cam.pixel_samples_scale = 1 / f32(cam.samples)
     SDL.Init(SDL.INIT_EVERYTHING)
-    window := SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H, WINDOW_FLAGS)
-    renderer := SDL.CreateRenderer(
+    window = SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H, WINDOW_FLAGS)
+    renderer = SDL.CreateRenderer(
     	window,
     	-1,
     	SDL.RENDERER_PRESENTVSYNC | SDL.RENDERER_ACCELERATED | SDL.RENDERER_TARGETTEXTURE
@@ -224,7 +315,7 @@ main :: proc() {
     start_time := SDL.GetTicks()
     looooop : for {
         if !rendered{
-            RayThrower(renderer, cam, spheres)
+            MultitheadRayThrower()
             // DrawAxis(renderer, {1, 0, 0}, cam)
             // DrawAxis(renderer, {0, 1, 0}, cam)
             // DrawAxis(renderer, {0, 0, 1}, cam)
