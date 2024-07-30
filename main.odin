@@ -5,6 +5,13 @@ import SDL "vendor:sdl2"
 import M "core:math"
 import "core:math/linalg"
 import rnd "core:math/rand"
+import "core:thread"
+
+cam : Camera
+spheres : [SPHERE_COUNT]Sphere
+window : ^SDL.Window
+renderer : ^SDL.Renderer
+frame : [WINDOW_H + 1][WINDOW_W + 1]color
 
 Interpolate :: proc(renderer : ^SDL.Renderer, a_, b_ : Vector2i) {
 	a := a_
@@ -128,9 +135,13 @@ Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color 
     return BG_shader(ray_)
 }
 
-RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COUNT]Sphere) {
-    y_loop : for j in 1..=WINDOW_H {
-        x_loop : for i in 0..<WINDOW_W {
+RayThrower :: proc(t : ^thread.Thread) {
+    x_S := BUCKET_SIZE * (i32(t.user_index) % SIDE)
+    x_E := BUCKET_SIZE * (i32(t.user_index) % SIDE + 1)
+    y_S := BUCKET_SIZE * (i32(t.user_index) / SIDE)
+    y_E := BUCKET_SIZE * (i32(t.user_index) / SIDE + 1)
+    y_loop : for j in y_S..=y_E {
+        x_loop : for i in x_S..<x_E {
             c : color
             antialias : for _ in 0..<cam.samples {
                 v : Vector2 = SampleVector({f32(i), f32(j)})
@@ -150,7 +161,6 @@ RayThrower :: proc(renderer : ^SDL.Renderer, cam : Camera, spheres : [SPHERE_COU
             c *= cam.pixel_samples_scale
             Colorize(renderer, c, i, j)
         }
-        SDL.RenderPresent(renderer)
     }
 }
 
@@ -240,10 +250,7 @@ MultitheadRayThrower :: proc() {
     SDL.RenderPresent(renderer)
 }
 
-cam : Camera
-spheres : [SPHERE_COUNT]Sphere
-window : SDL.Window
-renderer : SDL.Renderer
+
 
 main :: proc() {
     cam = {
