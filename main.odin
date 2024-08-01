@@ -180,36 +180,6 @@ MultitheadRayThrower :: proc(threadPool : ^[dynamic]^thread.Thread) {
     }
 }
 
-ChangeFocalDistance :: proc(x_, y_ : i32) {
-    v : Vector2 = {f32(x_), f32(WINDOW_H - y_)}
-    x, y := v.x * cam.delta_u - cam.w * 0.5, v.y * cam.delta_v - cam.h * 0.5 / ASPECT
-    ray : Ray = {
-        direction = ({x, y, - cam.focus_distance}),
-        origin = cam.origin
-    }
-    ray.direction = RotateCam(cam, ray.direction)
-    ray.direction = linalg.vector_normalize(ray.direction)
-    hit := ClosestHit(spheres, ray)
-    if hit.did_hit {
-        cam.focus_distance = linalg.vector_length(hit.intersection - cam.origin)
-    }
-    cam.w = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
-    cam.h = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
-    cam.delta_u = cam.w / f32(WINDOW_W)
-    cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT
-}
-
-ChangeFl :: proc(amount : f32) {
-    if cam.fl + amount > 0 && cam.fl + amount < 180 {
-        cam.fl -= amount
-        cam.w = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
-        cam.h = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
-
-        cam.delta_u = cam.w / f32(WINDOW_W)
-        cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT
-    }
-}
-
 main :: proc() {
     {
         cam = {
@@ -218,7 +188,7 @@ main :: proc() {
             fl = 35,
             angle_y = DegToRad(10),
             angle_x = DegToRad(20),
-            samples = 128,
+            samples = 256,
             apperture = 8
         }
 
@@ -299,6 +269,7 @@ main :: proc() {
                 }
             }
             samples += 1
+            ProgressBar(samples)
             SDL.RenderPresent(renderer)
             // fmt.println(SDL.GetTicks() - start_time)
         }
@@ -328,10 +299,12 @@ main :: proc() {
                     }
                 case SDL.EventType.MOUSEBUTTONUP:
                     if event.button.button == SDL.BUTTON_LEFT do rotate = false
+
                 case SDL.EventType.MOUSEWHEEL:
                     ChangeFl(f32(event.wheel.y * 2))
+                    fmt.println(cam.fl)
                     moved = true
-                    
+
                 case SDL.EventType.KEYDOWN:
                     #partial switch event.key.keysym.sym {
                         case SDL.Keycode.w:

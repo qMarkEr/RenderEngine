@@ -223,3 +223,56 @@ RandomOnDisk :: proc() -> Vector2 {
 		if linalg.length(rand_vec) < 1 do return rand_vec
 	}
 }
+
+ChangeFocalDistance :: proc(x_, y_ : i32) {
+    v : Vector2 = {f32(x_), f32(WINDOW_H - y_)}
+    x, y := v.x * cam.delta_u - cam.w * 0.5, v.y * cam.delta_v - cam.h * 0.5 / ASPECT
+    ray : Ray = {
+        direction = ({x, y, - cam.focus_distance}),
+        origin = cam.origin
+    }
+    ray.direction = RotateCam(cam, ray.direction)
+    ray.direction = linalg.vector_normalize(ray.direction)
+    hit := ClosestHit(spheres, ray)
+    if hit.did_hit {
+        cam.focus_distance = linalg.vector_length(hit.intersection - cam.origin)
+    }
+    cam.w = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
+    cam.h = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
+    cam.delta_u = cam.w / f32(WINDOW_W)
+    cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT
+}
+
+ChangeFl :: proc(amount : f32) {
+	cam.fl = clamp(cam.fl - amount, 0, 179)
+	cam.w = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
+	cam.h = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
+
+	cam.delta_u = cam.w / f32(WINDOW_W)
+	cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT
+}
+
+ProgressBar :: proc(progress : i32) {
+    FULL_BAR :: 100
+    START :: 10
+    WIDTH :: 10
+    percent : f32 = f32(progress) / f32(cam.samples)
+    part := i32(percent * FULL_BAR)
+
+    SDL.SetRenderDrawColor(renderer, 100, 100, 100, 255)
+    rect : SDL.Rect = {x = START - 2, y = START -2, h = WIDTH + 4, w = FULL_BAR + 4}
+    SDL.RenderDrawRect(renderer, &rect)
+    
+    if part == FULL_BAR do SDL.SetRenderDrawColor(renderer, 0, 255, 0, 255)
+    else do SDL.SetRenderDrawColor(renderer, 255, 0, 0, 255)
+
+    for i in 0..<part {
+        for j in 0..<WIDTH {
+            SDL.RenderDrawPoint(
+                renderer,
+                i32(START + i),
+                i32(START + j)
+            )
+        }
+    }
+}
