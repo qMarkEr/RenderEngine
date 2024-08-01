@@ -199,8 +199,8 @@ Rotate_x_proj :: proc (angle : f32, m_ : matrix[4, 4]f32) -> matrix[4, 4]f32 {
 
 SampleVector :: proc(vec : Vector2) -> Vector2 {
     sample_square : Vector2 = {
-        rnd.float32() - 0.5,
-        rnd.float32() - 0.5,
+        rnd.float32_normal(0, 1),
+        rnd.float32_normal(0, 1),
     }
     return vec + sample_square
 }
