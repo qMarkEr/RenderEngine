@@ -10,12 +10,20 @@ Vector2i :: [2]i32
 Sphere :: struct {
 	center : Vector3,
 	r : f32,
-	mtl : Material
+	mtl : Material,
+	center1 : Vector3,
+	center2 : Vector3,
+	isMoving : bool
 }
+SphereCenter :: proc(time : f32, sphere : Sphere) -> Vector3 {
+	return sphere.center1 + time * sphere.center
+}
+
 
 Ray :: struct {
 	direction : Vector3,
-	origin : Vector3
+	origin : Vector3,
+	time : f32
 }
 
 Camera :: struct {

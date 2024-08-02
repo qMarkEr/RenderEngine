@@ -9,7 +9,7 @@ FG_COLOR_2 : int = 0x508991
 FG_COLOR_3 : int = 0x172A3A
 BG_COLOR_BOTTOM : int =  0xF95738 //0x423E37 
 
-SPHERE_COUNT :: 4
+SPHERE_COUNT :: 100
 
 space_color_top : color = hex_to_rgba(0x75DDDD)
 space_color_bottom : color = hex_to_rgba(0xFFFFFF)

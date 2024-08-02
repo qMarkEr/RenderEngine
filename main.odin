@@ -73,7 +73,8 @@ DrawAxis :: proc(renderer : ^SDL.Renderer, x_end : Vector3 , cam : Camera) {
 }
 
 SphereIntersection :: proc(sphere : Sphere, ray : Ray) -> (intersected : bool, res : f32) {
-	L : Vector3 = sphere.center - ray.origin;
+    s_c : Vector3 = sphere.center if !sphere.isMoving else SphereCenter(ray.time, sphere)
+	L : Vector3 = s_c - ray.origin;
 	a : f32 = linalg.dot(ray.direction, ray.direction)
 	b : f32 = linalg.dot(ray.direction, L)
 	c : f32 = linalg.dot(L, L) - sphere.r * sphere.r
@@ -106,6 +107,7 @@ Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color 
     hit := ClosestHit(spheres, ray_)
     if hit.did_hit {
         ray : Ray
+        ray.time = ray_.time
         if hit.mtl.type == METAL {
             ray = Reflect(ray_, hit.normal, hit.intersection)
             ray.direction = linalg.vector_normalize(ray.direction + RandomUnitVector() * hit.mtl.fuzz)
@@ -148,7 +150,7 @@ RayThrower :: proc(t : ^thread.Thread) {
             ray.direction.xy -= offset
             ray.direction = linalg.vector_normalize(ray.direction)
             ray.direction = RotateCam(cam, ray.direction)
-            
+            ray.time = rnd.float32()
             frame[i][WINDOW_H - j] += Trace(ray, spheres, 0)
         }
     }
@@ -183,12 +185,12 @@ MultitheadRayThrower :: proc(threadPool : ^[dynamic]^thread.Thread) {
 main :: proc() {
     {
         cam = {
-            origin = {-1, 2, 0},
+            origin = {-1, 2, 7},
             focus_distance = 7.34,
             fl = 35,
             angle_y = DegToRad(10),
             angle_x = DegToRad(20),
-            samples = 256,
+            samples = 1024,
             apperture = 8
         }
 
@@ -196,34 +198,74 @@ main :: proc() {
         cam.h = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
 
         cam.defocus_disk = { 
-            0.02,
-            0.02
+            0.1,
+            0.1
         }
 
         cam.delta_u = cam.w / f32(WINDOW_W)
         cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT
+        
+        side_spheres := i32(linalg.sqrt(f32(SPHERE_COUNT - 1)))
+        prev_r_x : f32 = 0
+        prev_c_x : f32 = 0
 
+        prev_r_z : f32 = 0
+        prev_c_z : f32 = 0
+        for i in 0..<side_spheres {
+            for j in 0..<side_spheres {
+                spheres[i * side_spheres + j] = {
+                    r = rnd.float32_range(0.25, 1.5),
+                    mtl = {
+                        fuzz = clamp(rnd.float32_range(-1, 1), 0, 1),
+                        type = u8(rnd.uint32() % 3),
+                        IOR = 1.5
+                    }
+                }
+
+                if spheres[i * side_spheres + j].mtl.type == DIELECTRIC do spheres[i * side_spheres + j].mtl.diffuze = {1, 1, 1, 1}
+                else do spheres[i * side_spheres + j].mtl.diffuze = {rnd.float32(), rnd.float32(), rnd.float32(), 1}
+                
+                if i != 0 {
+                    prev_c_z = spheres[(i - 1) * side_spheres + j].center.z
+                    prev_r_z = spheres[(i - 1) * side_spheres + j].r
+                }
+
+                spheres[i * side_spheres + j].center = {
+                    (prev_r_x + prev_c_x) + spheres[i * side_spheres + j].r + rnd.float32_range(-2, 2) + 3,
+                    -1 + spheres[i * side_spheres + j].r,
+                    - ((prev_r_z - prev_c_z) + spheres[i * side_spheres + j].r + rnd.float32_range(-2, 2) + 3)
+                }
+                prev_c_x = spheres[i * side_spheres + j].center.x
+                prev_r_x = spheres[i * side_spheres + j].r
+            }
+            prev_c_x = 0
+            prev_r_x = 0
+        }
         // spheres : [SPHERE_COUNT]Sphere
-        spheres[0] = {
-            center = {0, -101, -7},
-            r = 100,
+        spheres[SPHERE_COUNT - 1] = {
+            center = {0, -5001, -0},
+            r = 5000,
             mtl = {diffuze = {0.1, 0.1, 0.1, 1}, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5}
         }
-        spheres[1] = {
-            center = {0, -0.5, -7},
-            r = 0.5,
-            mtl = {diffuze = {0, 0, 0, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
-        }
-        spheres[2] = {
-            center = {-1, -0.75, -5},
-            r = 0.25,
-            mtl = {diffuze = {1, 0, 0, 1}, fuzz = 0, type = LAMBERTARIAN}
-        }
-        spheres[3] = {
-            center = {2, 0, -9},
-            r = 1,
-            mtl = {diffuze = {0.8, 0.6, 0.2, 1}, fuzz = 0, type = METAL}
-        }
+        // spheres[1] = {
+        //     center = {0, -0.5, -7},
+        //     r = 0.5,
+        //     mtl = {diffuze = {0, 0, 0, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
+        // }
+        // spheres[2] = {
+        //     center = {-1, -0.75, -5},
+        //     r = 0.25,
+        //     mtl = {diffuze = {1, 0, 0, 1}, fuzz = 0, type = LAMBERTARIAN},
+        //     isMoving = false,
+        //     // center1 = {-1, -0.75, -5},
+        //     // center2 = {-1, -0.5, -5}
+        // }
+        // // spheres[2].center = spheres[2].center2 - spheres[2].center1
+        // spheres[3] = {
+        //     center = {2, 0, -9},
+        //     r = 1,
+        //     mtl = {diffuze = {0.8, 0.6, 0.2, 1}, fuzz = 0, type = METAL}
+        // }
         cam.pixel_samples_scale = 1 / f32(cam.samples)
         SDL.Init(SDL.INIT_EVERYTHING)
         window = SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H, WINDOW_FLAGS)
@@ -241,7 +283,7 @@ main :: proc() {
 	rotate : bool = false
 	start_x : f32 = ---
 	start_y : f32 = ---
-	rendered : = false
+	rendering : = false
     samples : i32 = 1
     moved := false
 
@@ -271,8 +313,11 @@ main :: proc() {
             samples += 1
             ProgressBar(samples)
             SDL.RenderPresent(renderer)
-            // fmt.println(SDL.GetTicks() - start_time)
-        }
+            fmt.println(1000.0 / f32(SDL.GetTicks() - start_time))
+    }
+        DrawAxis(renderer, {0, 0, 1}, cam)
+        DrawAxis(renderer, {0, 1, 0}, cam)
+        DrawAxis(renderer, {1, 0, 0}, cam)
         SDL.RenderPresent(renderer)
 		for SDL.PollEvent(&event) {
 			#partial switch event.type {
@@ -294,7 +339,6 @@ main :: proc() {
 
                         cam.angle_y += M.atan2_f32(f32(current_x - start_x), cam.focus_distance)
                         cam.angle_x += M.atan2_f32(f32(current_y - start_y), cam.focus_distance)
-                        rendered = false
                         moved = true
                     }
                 case SDL.EventType.MOUSEBUTTONUP:
@@ -302,7 +346,6 @@ main :: proc() {
 
                 case SDL.EventType.MOUSEWHEEL:
                     ChangeFl(f32(event.wheel.y * 2))
-                    fmt.println(cam.fl)
                     moved = true
 
                 case SDL.EventType.KEYDOWN:
@@ -351,6 +394,7 @@ main :: proc() {
             }
             samples = 1
             moved = false
+            rendering = false
         }
 	}
 }
