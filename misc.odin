@@ -109,16 +109,25 @@ RotateCam :: proc (cam : Camera, dir : Vector3) -> (res : Vector3) {
 	return
 }
 
-// Refract :: proc (r, n, intersection : Vector3, etha : f32) -> (res : Ray) {
-// 	cos_theta : f32 = linalg.dot(-r, n)
+/*
+Refract :: proc (r, n, intersection : Vector3, etha : f32) -> (res : Ray) {
+	cos_theta : f32 = linalg.dot(-r, n)
 
-// 	perp : Vector3 = etha * (r + cos_theta * n)
-// 	parl : Vector3 = -linalg.sqrt(abs(1.0 - linalg.dot(perp, perp))) * n
+	perp : Vector3 = etha * (r + cos_theta * n)
+	parl : Vector3 = -linalg.sqrt(abs(1.0 - linalg.dot(perp, perp))) * n
 
-// 	res.direction = linalg.normalize(perp + parl)
-// 	res.origin = intersection - n * SHADOW_BIAS
-// 	return
-// }
+	res.direction = linalg.normalize(perp + parl)
+	res.origin = intersection - n * SHADOW_BIAS
+	return
+}
+
+Reflectance :: proc(cos_, ri : f32) -> f32 {
+	r0 : f32 = (1 - ri) / (1 + ri)
+	r0 *= r0
+	return r0 + (1 - r0) * linalg.pow((1 - cos_), 5.0)
+}
+*/
+
 Refract :: proc(r, n, intersection : Vector3, ior : f32) -> (res : Ray) {
 	cosi := linalg.dot(r, n)
 	etai, etat : f32 = 1.0, ior
@@ -150,12 +159,6 @@ Fresnel :: proc(r, n : Vector3, ior : f32) -> f32 {
 	Rs := ((etat * cosi) - (etai * cost)) / ((etat * cosi) + (etai * cost));
 	Rp := ((etai * cosi) - (etat * cost)) / ((etai * cosi) + (etat * cost));
 	return (Rs * Rs + Rp * Rp) / 2.0;
-}
-
-Reflectance :: proc(cos_, ri : f32) -> f32 {
-	r0 : f32 = (1 - ri) / (1 + ri)
-	r0 *= r0
-	return r0 + (1 - r0) * linalg.pow((1 - cos_), 5.0)
 }
 
 Reflect :: proc(ray : Ray, normal, intersection : Vector3) -> Ray {

@@ -13,7 +13,8 @@ Sphere :: struct {
 	mtl : Material,
 	center1 : Vector3,
 	center2 : Vector3,
-	isMoving : bool
+	isMoving : bool,
+	bbox : AABB
 }
 SphereCenter :: proc(time : f32, sphere : Sphere) -> Vector3 {
 	return sphere.center1 + time * sphere.center
