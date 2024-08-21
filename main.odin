@@ -10,11 +10,12 @@ import "core:time"
 import "core:sync"
 
 cam : Camera
-spheres : [SPHERE_COUNT]Sphere
+spheres := BasicScene()
 window : ^SDL.Window
 renderer : ^SDL.Renderer
 frame : [WINDOW_W + 1][WINDOW_H + 1]color
 root_node : BVH_node
+sphere_count : i32 = len(spheres)
 
 Interpolate :: proc(renderer : ^SDL.Renderer, a_, b_ : Vector2i) {
 	a := a_
@@ -148,28 +149,14 @@ SphereIntersection :: proc(sphere : Sphere, ray : Ray) -> (intersected : bool, r
 	else do return true, root
 }
 
-ClosestHit :: proc(objs : [SPHERE_COUNT]Sphere, ray : Ray) -> (hit : HitInfo) {
-    // max_mul : f32 = 10000
-    // for obj in objs {
-    //     did_hit, mul := SphereIntersection(obj, ray)
-    //     if did_hit {
-    //         if mul < max_mul {
-    //             hit.did_hit = did_hit
-    //             hit.intersection = mul
-    //             hit.normal = linalg.vector_normalize(ray.origin + hit.intersection * ray.direction - obj.center)
-    //             hit.mtl = obj.mtl
-    //             max_mul = mul
-    //         }
-    //     }
-    // }
+ClosestHit :: proc(ray : Ray) -> (hit : HitInfo) {
     _ = HitNode(&root_node, ray, {-999, 99999}, &hit)
     return
 }
-
-Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color {
+Trace :: proc(ray_ : Ray, depth : i32) -> color {
     if depth > MAX_BOUNCE do return {0, 0, 0, 1}
 
-    hit := ClosestHit(spheres, ray_)
+    hit := ClosestHit(ray_)
     if hit.did_hit {
         ray : Ray
         ray.time = ray_.time
@@ -180,20 +167,27 @@ Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color 
             if linalg.dot(hit.normal, ray.direction) < 0 do return {0, 0, 0, 1}
         }
 
-        if hit.mtl.type == LAMBERTARIAN do ray = RandomReflect(ray_, hit.normal, intersection)
+        if hit.mtl.type == LAMBERTARIAN {
+            ray = RandomReflect(ray_, hit.normal, intersection)
+            scale : f32 = 5
+            x, y, z : i32 = i32(linalg.floor(intersection.x * scale)), i32(linalg.floor(intersection.y * scale)), i32(linalg.floor(intersection.z * scale))
+            coords : bool = (x + y + z) % 2 == 0
+            if coords do hit.mtl.diffuze = {.1, .1, .1, 0}
+            else do hit.mtl.diffuze = {.3, .3, .3, 0}
+        }
 
         if hit.mtl.type == DIELECTRIC {
             kr := Fresnel(ray_.direction, hit.normal, hit.mtl.IOR)
             refr, refl : color
             if kr < 1 { 
                 refr_ray : Ray = Refract(ray_.direction, hit.normal, intersection, hit.mtl.IOR)
-                refr = Trace(refr_ray, spheres, depth + 1)
+                refr = Trace(refr_ray, depth + 1)
             }
             refl_ray : Ray = Reflect(ray_, hit.normal, intersection)
-            refl = Trace(refl_ray, spheres, depth + 1)
-            return (refl * kr + refr * (1 - kr)) 
+            refl = Trace(refl_ray, depth + 1)
+            return (refl * kr + refr * (1 - kr))
         }
-        return Trace(ray, spheres, depth + 1) * hit.mtl.diffuze
+        return Trace(ray, depth + 1) * hit.mtl.diffuze
     }
     return BG_shader(ray_)
 }
@@ -217,7 +211,7 @@ RayThrower :: proc(t : ^thread.Thread) {
             ray.direction = linalg.vector_normalize(ray.direction)
             ray.direction = RotateCam(cam, ray.direction)
             ray.time = rnd.float32()
-            frame[i][WINDOW_H - j] += Trace(ray, spheres, 0)
+            frame[i][WINDOW_H - j] += Trace(ray, 0)
         }
     }
 
@@ -284,57 +278,57 @@ main :: proc() {
             SDL.DestroyWindow(window)
             SDL.Quit()
         }
-        side_spheres := i32(linalg.sqrt(f32(SPHERE_COUNT - 1)))
-        prev_r_x : f32 = -10
-        prev_c_x : f32 = -10
+        // side_spheres := i32(linalg.sqrt(f32(SPHERE_COUNT - 1)))
+        // prev_r_x : f32 = -10
+        // prev_c_x : f32 = -10
 
-        prev_r_z : f32 = -100
-        prev_c_z : f32 = -100
-        for i in 0..<side_spheres {
-            for j in 0..<side_spheres {
-                spheres[i * side_spheres + j] = {
-                    r = rnd.float32_range(0.25, 3),
-                    mtl = {
-                        fuzz = clamp(rnd.float32_range(-1, 1), 0, 1),
-                        type = u8(rnd.uint32() % 3),
-                        IOR = 1.5
-                    }
-                }
+        // prev_r_z : f32 = -100
+        // prev_c_z : f32 = -100
+        // for i in 0..<side_spheres {
+        //     for j in 0..<side_spheres {
+        //         spheres[i * side_spheres + j] = {
+        //             r = rnd.float32_range(0.25, 3),
+        //             mtl = {
+        //                 fuzz = clamp(rnd.float32_range(-1, 1), 0, 1),
+        //                 type = u8(rnd.uint32() % 3),
+        //                 IOR = 1.5
+        //             }
+        //         }
 
-                if spheres[i * side_spheres + j].mtl.type == DIELECTRIC do spheres[i * side_spheres + j].mtl.diffuze = {1, 1, 1, 1}
-                else do spheres[i * side_spheres + j].mtl.diffuze = {rnd.float32(), rnd.float32(), rnd.float32(), 1}
+        //         if spheres[i * side_spheres + j].mtl.type == DIELECTRIC do spheres[i * side_spheres + j].mtl.diffuze = {1, 1, 1, 1}
+        //         else do spheres[i * side_spheres + j].mtl.diffuze = {rnd.float32(), rnd.float32(), rnd.float32(), 1}
                 
-                if i != 0 {
-                    prev_c_z = spheres[(i - 1) * side_spheres + j].center.z
-                    prev_r_z = spheres[(i - 1) * side_spheres + j].r
-                }
-                if j != 0 {
-                    prev_c_x = spheres[i * side_spheres + (j - 1)].center.x
-                    prev_r_x = spheres[i * side_spheres + (j - 1)].r
-                }
-                delta : f32 = rnd.float32_range(-2, 2) + 6
-                spheres[i * side_spheres + j].center = {
-                    (prev_r_x + prev_c_x) + spheres[i * side_spheres + j].r + delta,
-                    -1 + spheres[i * side_spheres + j].r,
-                    -((prev_r_z - prev_c_z) + spheres[i * side_spheres + j].r + delta)
-                }
-                spheres[i * side_spheres + j].bbox = CreateAABB(
-                    spheres[i * side_spheres + j].center - spheres[i * side_spheres + j].r,
-                    spheres[i * side_spheres + j].center + spheres[i * side_spheres + j].r
-                )
-            }
-            prev_c_x = -10
-            prev_r_x = -10
-        }
-        spheres[SPHERE_COUNT - 1] = {
-            center = {0, -5001, -7},
-            r = 5000,
-            mtl = {diffuze = {0.1, 0.1, 0.1, 1}, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5},
-        }
-        spheres[SPHERE_COUNT - 1].bbox = CreateAABB(
-            spheres[SPHERE_COUNT - 1].center - spheres[SPHERE_COUNT - 1].r,
-            spheres[SPHERE_COUNT - 1].center + spheres[SPHERE_COUNT - 1].r
-        )
+        //         if i != 0 {
+        //             prev_c_z = spheres[(i - 1) * side_spheres + j].center.z
+        //             prev_r_z = spheres[(i - 1) * side_spheres + j].r
+        //         }
+        //         if j != 0 {
+        //             prev_c_x = spheres[i * side_spheres + (j - 1)].center.x
+        //             prev_r_x = spheres[i * side_spheres + (j - 1)].r
+        //         }
+        //         delta : f32 = rnd.float32_range(-2, 2) + 6
+        //         spheres[i * side_spheres + j].center = {
+        //             (prev_r_x + prev_c_x) + spheres[i * side_spheres + j].r + delta,
+        //             -1 + spheres[i * side_spheres + j].r,
+        //             -((prev_r_z - prev_c_z) + spheres[i * side_spheres + j].r + delta)
+        //         }
+        //         spheres[i * side_spheres + j].bbox = CreateAABB(
+        //             spheres[i * side_spheres + j].center - spheres[i * side_spheres + j].r,
+        //             spheres[i * side_spheres + j].center + spheres[i * side_spheres + j].r
+        //         )
+        //     }
+        //     prev_c_x = -10
+        //     prev_r_x = -10
+        // }
+        // spheres[SPHERE_COUNT - 1] = {
+        //     center = {0, -5001, -7},
+        //     r = 5000,
+        //     mtl = {diffuze = {0.1, 0.1, 0.1, 1}, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5},
+        // }
+        // spheres[SPHERE_COUNT - 1].bbox = CreateAABB(
+        //     spheres[SPHERE_COUNT - 1].center - spheres[SPHERE_COUNT - 1].r,
+        //     spheres[SPHERE_COUNT - 1].center + spheres[SPHERE_COUNT - 1].r
+        // )
         // spheres[0] = {
         //     center = {0, -0.5, -7},
         //     r = 0.5,
@@ -366,7 +360,7 @@ main :: proc() {
         //     spheres[2].center - spheres[2].r,
         //     spheres[2].center + spheres[2].r
         // )
-        SplitNodes(&root_node, 0, SPHERE_COUNT)
+        SplitNodes(&root_node, 0, sphere_count)
         defer { DeleteNode(&root_node) }
         // for i in 0..<SPHERE_COUNT {
         //     root_node.bbox = CreateAABB(root_node.bbox, spheres[i].bbox)

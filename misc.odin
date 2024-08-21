@@ -236,7 +236,7 @@ ChangeFocalDistance :: proc(x_, y_ : i32) {
     }
     ray.direction = RotateCam(cam, ray.direction)
     ray.direction = linalg.vector_normalize(ray.direction)
-    hit := ClosestHit(spheres, ray)
+    hit := ClosestHit(ray)
     if hit.did_hit {
 		intersection := ray.origin + hit.intersection * ray.direction
         cam.focus_distance = linalg.vector_length(intersection - cam.origin)
