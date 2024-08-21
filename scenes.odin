@@ -16,7 +16,7 @@ BasicScene :: proc() -> (spheres : [4]Sphere) {
     spheres[0] = {
         center = {0, -0.5, -7},
         r = 0.5,
-        mtl = {diffuze = {0, 0, 0, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
+        mtl = {diffuze = {0, 0.5, 0, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
     }
     spheres[0].bbox = CreateAABB(
         spheres[0].center - spheres[0].r,

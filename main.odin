@@ -181,7 +181,7 @@ Trace :: proc(ray_ : Ray, depth : i32) -> color {
             refr, refl : color
             if kr < 1 { 
                 refr_ray : Ray = Refract(ray_.direction, hit.normal, intersection, hit.mtl.IOR)
-                refr = Trace(refr_ray, depth + 1)
+                refr = Trace(refr_ray, depth + 1) * hit.mtl.diffuze
             }
             refl_ray : Ray = Reflect(ray_, hit.normal, intersection)
             refl = Trace(refl_ray, depth + 1)
@@ -243,132 +243,45 @@ MultitheadRayThrower :: proc(threadPool : ^[dynamic]^thread.Thread) {
 }
 
 main :: proc() {
-    {
-        cam = {
-            origin = {0, 0, 11},
-            focus_distance = 17.63,
-            fl = 35,
-            angle_y = DegToRad(0),
-            angle_x = DegToRad(0),
-            samples = 256,
-            apperture = 8
-        }
 
-        cam.w = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
-        cam.h = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
+    window = SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H, WINDOW_FLAGS)
+    renderer = SDL.CreateRenderer(
+        window,
+        -1,
+        SDL.RENDERER_PRESENTVSYNC | SDL.RENDERER_ACCELERATED | SDL.RENDERER_TARGETTEXTURE
+    )
+    defer { 
+        SDL.DestroyWindow(window)
+        SDL.Quit()
+    }
 
-        cam.defocus_disk = { 
-            0.1,
-            0.1
-        }
+    cam = {
+        origin = {0, 0, 11},
+        focus_distance = 17.63,
+        fl = 35,
+        angle_y = DegToRad(0),
+        angle_x = DegToRad(0),
+        samples = 256,
+        apperture = 8
+    }
 
-        cam.delta_u = cam.w / f32(WINDOW_W)
-        cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT
+    cam.w = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
+    cam.h = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
 
-        cam.pixel_samples_scale = 1 / f32(cam.samples)
-        SDL.Init(SDL.INIT_EVERYTHING)
-        window = SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H, WINDOW_FLAGS)
-        renderer = SDL.CreateRenderer(
-            window,
-            -1,
-            SDL.RENDERER_PRESENTVSYNC | SDL.RENDERER_ACCELERATED | SDL.RENDERER_TARGETTEXTURE
-        )
-        }
-        defer { 
-            SDL.DestroyWindow(window)
-            SDL.Quit()
-        }
-        // side_spheres := i32(linalg.sqrt(f32(SPHERE_COUNT - 1)))
-        // prev_r_x : f32 = -10
-        // prev_c_x : f32 = -10
+    cam.defocus_disk = { 
+        0.05,
+        0.05
+    }
 
-        // prev_r_z : f32 = -100
-        // prev_c_z : f32 = -100
-        // for i in 0..<side_spheres {
-        //     for j in 0..<side_spheres {
-        //         spheres[i * side_spheres + j] = {
-        //             r = rnd.float32_range(0.25, 3),
-        //             mtl = {
-        //                 fuzz = clamp(rnd.float32_range(-1, 1), 0, 1),
-        //                 type = u8(rnd.uint32() % 3),
-        //                 IOR = 1.5
-        //             }
-        //         }
+    cam.delta_u = cam.w / f32(WINDOW_W)
+    cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT
 
-        //         if spheres[i * side_spheres + j].mtl.type == DIELECTRIC do spheres[i * side_spheres + j].mtl.diffuze = {1, 1, 1, 1}
-        //         else do spheres[i * side_spheres + j].mtl.diffuze = {rnd.float32(), rnd.float32(), rnd.float32(), 1}
-                
-        //         if i != 0 {
-        //             prev_c_z = spheres[(i - 1) * side_spheres + j].center.z
-        //             prev_r_z = spheres[(i - 1) * side_spheres + j].r
-        //         }
-        //         if j != 0 {
-        //             prev_c_x = spheres[i * side_spheres + (j - 1)].center.x
-        //             prev_r_x = spheres[i * side_spheres + (j - 1)].r
-        //         }
-        //         delta : f32 = rnd.float32_range(-2, 2) + 6
-        //         spheres[i * side_spheres + j].center = {
-        //             (prev_r_x + prev_c_x) + spheres[i * side_spheres + j].r + delta,
-        //             -1 + spheres[i * side_spheres + j].r,
-        //             -((prev_r_z - prev_c_z) + spheres[i * side_spheres + j].r + delta)
-        //         }
-        //         spheres[i * side_spheres + j].bbox = CreateAABB(
-        //             spheres[i * side_spheres + j].center - spheres[i * side_spheres + j].r,
-        //             spheres[i * side_spheres + j].center + spheres[i * side_spheres + j].r
-        //         )
-        //     }
-        //     prev_c_x = -10
-        //     prev_r_x = -10
-        // }
-        // spheres[SPHERE_COUNT - 1] = {
-        //     center = {0, -5001, -7},
-        //     r = 5000,
-        //     mtl = {diffuze = {0.1, 0.1, 0.1, 1}, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5},
-        // }
-        // spheres[SPHERE_COUNT - 1].bbox = CreateAABB(
-        //     spheres[SPHERE_COUNT - 1].center - spheres[SPHERE_COUNT - 1].r,
-        //     spheres[SPHERE_COUNT - 1].center + spheres[SPHERE_COUNT - 1].r
-        // )
-        // spheres[0] = {
-        //     center = {0, -0.5, -7},
-        //     r = 0.5,
-        //     mtl = {diffuze = {0, 0, 0, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
-        // }
-        // spheres[0].bbox = CreateAABB(
-        //     spheres[0].center - spheres[0].r,
-        //     spheres[0].center + spheres[0].r
-        // )
-        // spheres[1] = {
-        //     center = {-1, -0.75, -5},
-        //     r = 0.25,
-        //     mtl = {diffuze = {1, 0, 0, 1}, fuzz = 0, type = LAMBERTARIAN},
-        //     isMoving = false,
-        //     // center1 = {-1, -0.75, -5},
-        //     // center2 = {-1, -0.5, -5}
-        // }
-        // spheres[1].bbox = CreateAABB(
-        //     spheres[1].center - spheres[1].r,
-        //     spheres[1].center + spheres[1].r
-        // )
-        // // spheres[2].center = spheres[2].center2 - spheres[2].center1
-        // spheres[2] = {
-        //     center = {2, 0, -9},
-        //     r = 1,
-        //     mtl = {diffuze = {0.8, 0.6, 0.2, 1}, fuzz = 0, type = METAL}
-        // }
-        // spheres[2].bbox = CreateAABB(
-        //     spheres[2].center - spheres[2].r,
-        //     spheres[2].center + spheres[2].r
-        // )
-        SplitNodes(&root_node, 0, sphere_count)
-        defer { DeleteNode(&root_node) }
-        // for i in 0..<SPHERE_COUNT {
-        //     root_node.bbox = CreateAABB(root_node.bbox, spheres[i].bbox)
-        // }
-    // DrawAxis(renderer, {0, 0, 1}, cam)
-    // DrawAxis(renderer, {0, 1, 0}, cam)
-    // DrawAxis(renderer, {1, 0, 0}, cam)
-    SDL.RenderPresent(renderer)
+    cam.pixel_samples_scale = 1 / f32(cam.samples)
+    SDL.Init(SDL.INIT_EVERYTHING)
+    
+    SplitNodes(&root_node, 0, sphere_count)
+    defer DeleteNode(&root_node) 
+
 	event : SDL.Event = ---
 	rotate : bool = false
 	start_x : f32 = ---
@@ -377,8 +290,10 @@ main :: proc() {
     samples : i32 = 1
     moved := false
     fps : f32 = 0
+
     threadPool := make([dynamic]^thread.Thread, 0, THREADS)
     defer delete(threadPool)
+
     looooop : for {
         if samples != cam.samples {
             start_time := SDL.GetTicks()
@@ -404,14 +319,7 @@ main :: proc() {
             SDL.RenderPresent(renderer)
             fps += 1000.0 / f32(SDL.GetTicks() - start_time)
             fmt.println("fps:", 1000.0 / f32(SDL.GetTicks() - start_time), "avg:", fps / f32(samples - 1))
-    }
-    //     DrawAxis(renderer, {0, 0, 1}, cam)
-    //     DrawAxis(renderer, {0, 1, 0}, cam)
-    //     DrawAxis(renderer, {1, 0, 0}, cam)
-        // for i in 0..<SPHERE_COUNT {
-        //     DrawBBox(spheres[i].bbox)
-        // }
-        // DrawBVH(&root_node)
+        }
         SDL.RenderPresent(renderer)
 		for SDL.PollEvent(&event) {
 			#partial switch event.type {
