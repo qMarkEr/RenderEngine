@@ -1,14 +1,5 @@
 package main
 
-Interval :: struct {
-    start, end : f32
-}
-
-BVH_node :: struct {
-    bbox : AABB,
-    obj_index : i32,
-    left, right : ^BVH_node,
-}
 
 ExpandInterval :: proc(i : Interval, delta : f32) -> Interval {
     pad := delta / 2.0
@@ -18,8 +9,6 @@ ExpandInterval :: proc(i : Interval, delta : f32) -> Interval {
 Overlaps :: proc(a, b : Interval) -> bool {
     return true
 }
-
-AABB :: distinct [3]Interval
 
 AABBFromPoints :: proc(a, b : Vector3) -> (res : AABB) {
     res.x = { a.x, b.x } if a.x > b.x else { b.x, a.x }
@@ -38,8 +27,8 @@ AABBFromAABB :: proc(a, b : AABB) -> (res : AABB) {
 CreateAABB :: proc{AABBFromPoints, AABBFromAABB}
 
 CreateInterval :: proc(a, b : Interval) -> (res : Interval) {
-    res.start = a.start if a.start < b.start else b.start
-    res.end = a.end if a.end > b.end else b.end
+    res.start = a.start if a.start > b.start else b.start
+    res.end = a.end if a.end < b.end else b.end
     return
 }
 
@@ -62,9 +51,3 @@ HitAABB :: proc(aabb: AABB, r : Ray, ray_t : Interval) -> bool {
     }
     return true
 }
-
-// HitNode :: proc(node : BVH_node, r : Ray, i : Interval) -> bool {
-//     if !HitAABB(node.bbox, r, i) do return false
-//     l, r := HitAABB(node.left.bbox, r, i), HitAABB(node.right.bbox, r, i)
-//     return l || r
-// }

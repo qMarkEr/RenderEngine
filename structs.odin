@@ -6,6 +6,7 @@ Vector3 :: [3]f32
 Vector3i :: [3]i32
 Vector2 :: [2]f32
 Vector2i :: [2]i32
+AABB :: distinct [3]Interval
 
 Sphere :: struct {
 	center : Vector3,
@@ -16,10 +17,20 @@ Sphere :: struct {
 	isMoving : bool,
 	bbox : AABB
 }
+
 SphereCenter :: proc(time : f32, sphere : Sphere) -> Vector3 {
 	return sphere.center1 + time * sphere.center
 }
 
+Interval :: struct {
+    start, end : f32
+}
+
+BVH_node :: struct {
+    bbox : AABB,
+    obj_index : i32,
+    left, right : ^BVH_node,
+}
 
 Ray :: struct {
 	direction : Vector3,
@@ -50,7 +61,7 @@ Material :: struct {
 
 HitInfo :: struct {
 	did_hit : bool,
-	intersection, 
+	intersection : f32, 
 	normal : Vector3,
 	mtl : Material
 }
