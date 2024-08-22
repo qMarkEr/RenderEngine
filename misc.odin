@@ -280,3 +280,21 @@ ProgressBar :: proc(progress : i32) {
         }
     }
 }
+
+NiceApperture :: proc() -> Vector2 {
+	start_vec : Vector2 : {1, 0}
+	for ;; {
+		rand_vec : Vector2 = {rnd.float32_normal(0, 1), rnd.float32_normal(0, 1)}
+		// theta := linalg.dot(linalg.vector_normalize(rand_vec), start_vec)
+		if rand_vec.x <= 1 && rand_vec.x >= -1 && rand_vec.y <= 1 && rand_vec.y >= -1 do return rand_vec
+		// r := 10 + linalg.sin(8 * theta)
+		// if linalg.length(rand_vec) <= r do return rand_vec
+	}
+
+}
+
+SphereUV :: proc(sphere : Sphere, point : Vector3) -> Vector2 {
+	theta := linalg.acos(-point.y)
+	phi := linalg.atan2(-point.z, point.x) + linalg.PI
+	return {0.5 * phi / linalg.PI, theta / linalg.PI}
+}

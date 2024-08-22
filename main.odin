@@ -8,6 +8,8 @@ import rnd "core:math/rand"
 import "core:thread"
 import "core:time"
 import "core:sync"
+import stb "vendor:stb/image"
+
 
 cam : Camera
 spheres := BasicScene()
@@ -158,6 +160,7 @@ Trace :: proc(ray_ : Ray, depth : i32) -> color {
 
     hit := ClosestHit(ray_)
     if hit.did_hit {
+        c : color = GetPixel(hit.mtl.diffuze, hit.mtl.diffuze.w, hit.mtl.diffuze.h, hit.mtl.diffuze.bytes, hit.uv)
         ray : Ray
         ray.time = ray_.time
         intersection := ray_.origin + hit.intersection * ray_.direction
@@ -169,11 +172,6 @@ Trace :: proc(ray_ : Ray, depth : i32) -> color {
 
         if hit.mtl.type == LAMBERTARIAN {
             ray = RandomReflect(ray_, hit.normal, intersection)
-            scale : f32 = 5
-            x, y, z : i32 = i32(linalg.floor(intersection.x * scale)), i32(linalg.floor(intersection.y * scale)), i32(linalg.floor(intersection.z * scale))
-            coords : bool = (x + y + z) % 2 == 0
-            if coords do hit.mtl.diffuze = {.1, .1, .1, 0}
-            else do hit.mtl.diffuze = {.3, .3, .3, 0}
         }
 
         if hit.mtl.type == DIELECTRIC {
@@ -181,13 +179,13 @@ Trace :: proc(ray_ : Ray, depth : i32) -> color {
             refr, refl : color
             if kr < 1 { 
                 refr_ray : Ray = Refract(ray_.direction, hit.normal, intersection, hit.mtl.IOR)
-                refr = Trace(refr_ray, depth + 1) * hit.mtl.diffuze
+                refr = Trace(refr_ray, depth + 1) * c
             }
             refl_ray : Ray = Reflect(ray_, hit.normal, intersection)
             refl = Trace(refl_ray, depth + 1)
             return (refl * kr + refr * (1 - kr))
         }
-        return Trace(ray, depth + 1) * hit.mtl.diffuze
+        return Trace(ray, depth + 1) * c
     }
     return BG_shader(ray_)
 }

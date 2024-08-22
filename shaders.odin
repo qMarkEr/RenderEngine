@@ -6,7 +6,7 @@ BG_shader :: proc(ray_: Ray) -> color {
 }
 
 Normal_Shader :: proc(point: Vector3) -> (mtl : Material) {
-    mtl.diffuze = {
+    mtl.diffuze.albedo = {
         0.5 * (point.x + 1),
         0.5 * (point.y + 1),
         0.5 * (point.z + 1),

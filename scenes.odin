@@ -3,11 +3,11 @@ package main
 import rnd "core:math/rand"
 import "core:math/linalg"
 
-BasicScene :: proc() -> (spheres : [4]Sphere) {
+BasicScene :: proc() -> (spheres : [6]Sphere) {
     spheres[3] = {
         center = {0, -5001, -7},
         r = 5000,
-        mtl = {diffuze = {0.1, 0.1, 0.1, 1}, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5},
+        mtl = {diffuze = {{0.1, 0.1, 0.1, 1}, nil, 0, 0, 0}, fuzz = 0.2, type = METAL, IOR = 1.5},
     }
     spheres[3].bbox = CreateAABB(
         spheres[3].center - spheres[3].r,
@@ -16,16 +16,37 @@ BasicScene :: proc() -> (spheres : [4]Sphere) {
     spheres[0] = {
         center = {0, -0.5, -7},
         r = 0.5,
-        mtl = {diffuze = {0, 0.5, 0, 1}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
+        mtl = {diffuze = {{0.1, 0.5, 0.8, 1}, nil, 0, 0, 0}, fuzz = 1, type = DIELECTRIC, IOR = 1.5}
     }
     spheres[0].bbox = CreateAABB(
         spheres[0].center - spheres[0].r,
         spheres[0].center + spheres[0].r
     )
+    spheres[4] = {
+        center = {0, -0.5, -7},
+        r = 0.48,
+        mtl = {diffuze = {{0.1, 0.5, 0.8, 1}, nil, 0, 0, 0}, fuzz = 1, type = DIELECTRIC, IOR = 1 / 1.5}
+    }
+    spheres[4].bbox = CreateAABB(
+        spheres[4].center - spheres[4].r,
+        spheres[4].center + spheres[4].r
+    )
+    t : Texture
+    t.albedo = {1, 0, 1, 0}
+    t.image_data, t.w, t.h, t.bytes = ReadFromFile(PATH)
+    spheres[5] = {
+        center = {-1, 0, -9},
+        r = 1,
+        mtl = {diffuze = t, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5}
+    }
+    spheres[5].bbox = CreateAABB(
+        spheres[5].center - spheres[5].r,
+        spheres[5].center + spheres[5].r
+    )
     spheres[1] = {
         center = {-1, -0.75, -5},
         r = 0.25,
-        mtl = {diffuze = {1, 0, 0, 1}, fuzz = 0, type = LAMBERTARIAN},
+        mtl = {diffuze = {{1, 0, 0, 1}, nil, 0, 0, 0}, fuzz = 0, type = LAMBERTARIAN},
         isMoving = false,
         // center1 = {-1, -0.75, -5},
         // center2 = {-1, -0.5, -5}
@@ -38,7 +59,7 @@ BasicScene :: proc() -> (spheres : [4]Sphere) {
     spheres[2] = {
         center = {2, 0, -9},
         r = 1,
-        mtl = {diffuze = {0.8, 0.6, 0.2, 1}, fuzz = 0, type = METAL}
+        mtl = {diffuze = {{0.8, 0.5, 0.1, 1}, nil, 0, 0, 0}, fuzz = 0, type = METAL}
     }
     spheres[2].bbox = CreateAABB(
         spheres[2].center - spheres[2].r,
@@ -64,9 +85,12 @@ ALotOfSpheres :: proc() -> (spheres : [SPHERE_COUNT]Sphere) {
                     IOR = 1.5
                 }
             }
-
-            if spheres[i * side_spheres + j].mtl.type == DIELECTRIC do spheres[i * side_spheres + j].mtl.diffuze = {1, 1, 1, 1}
-            else do spheres[i * side_spheres + j].mtl.diffuze = {rnd.float32(), rnd.float32(), rnd.float32(), 1}
+            t : Texture = {
+                albedo = {rnd.float32(), rnd.float32(), rnd.float32(), 1},
+                image_data = nil, w = 0, h = 0, bytes = 0
+            }
+            if spheres[i * side_spheres + j].mtl.type == DIELECTRIC do spheres[i * side_spheres + j].mtl.diffuze = t
+            else do spheres[i * side_spheres + j].mtl.diffuze = t
             
             if i != 0 {
                 prev_c_z = spheres[(i - 1) * side_spheres + j].center.z
@@ -93,7 +117,7 @@ ALotOfSpheres :: proc() -> (spheres : [SPHERE_COUNT]Sphere) {
     spheres[SPHERE_COUNT - 1] = {
         center = {0, -5001, -7},
         r = 5000,
-        mtl = {diffuze = {0.1, 0.1, 0.1, 1}, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5},
+        mtl = {diffuze = {{0.1, 0.1, 0.1, 1}, nil, 0, 0, 0}, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5},
     }
     spheres[SPHERE_COUNT - 1].bbox = CreateAABB(
         spheres[SPHERE_COUNT - 1].center - spheres[SPHERE_COUNT - 1].r,

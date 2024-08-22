@@ -53,7 +53,7 @@ Camera :: struct {
 }
 
 Material :: struct {
-	diffuze : color,
+	diffuze : Texture,
 	fuzz : f32,
 	type : u8,
 	IOR : f32
@@ -63,5 +63,12 @@ HitInfo :: struct {
 	did_hit : bool,
 	intersection : f32, 
 	normal : Vector3,
-	mtl : Material
+	mtl : Material,
+	uv : Vector2
+}
+
+Texture :: struct {
+	albedo : color,
+	image_data : []byte,
+	w, h, bytes : i32
 }

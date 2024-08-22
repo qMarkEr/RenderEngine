@@ -2,14 +2,16 @@ package main
 
 import "core:math/linalg"
 
-HitNode :: proc(node : ^BVH_node, r : Ray, i : Interval, h : ^HitInfo) -> (bool) {
+HitNode :: proc(node : ^BVH_node, r : Ray, i : Interval, h : ^HitInfo) -> bool {
     if node.obj_index != -1 {
         did_hit, mul := SphereIntersection(spheres[node.obj_index], r)
         if did_hit && mul < i.end {
             h.did_hit = true
             h.intersection = mul
-            h.normal = linalg.vector_normalize(r.origin + h.intersection * r.direction - spheres[node.obj_index].center)
+            isect := r.origin + h.intersection * r.direction
+            h.normal = linalg.vector_normalize(isect - spheres[node.obj_index].center)
             h.mtl = spheres[node.obj_index].mtl
+            h.uv = SphereUV(spheres[node.obj_index], h.normal)
         }
         return did_hit
     }
