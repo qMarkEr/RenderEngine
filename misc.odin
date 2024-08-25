@@ -220,6 +220,10 @@ RandomUnitVector :: proc() -> Vector3 {
 	return linalg.vector_normalize(rand_vec)
 }
 
+RandomVectorRange :: proc(min, max : f32) -> Vector3 {
+	return {rnd.float32_range(min, max), rnd.float32_range(min, max), rnd.float32_range(min, max)}
+}
+
 RandomOnDisk :: proc() -> Vector2 {
 	for {
 		rand_vec : Vector2 = {rnd.float32_normal(0, 1), rnd.float32_normal(0, 1)}

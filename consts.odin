@@ -37,4 +37,6 @@ DIELECTRIC :: 2
 
 vup : Vector3 : {0, 1, 0}
 
-PATH :: "C:\\Users\\marker_\\Documents\\Projects\\RenderEngine\\assets\\mars.jpg"
+MARS :: "C:\\Users\\marker_\\Documents\\Projects\\RenderEngine\\assets\\mars.jpg"
+MILKYWAY :: "C:\\Users\\marker_\\Documents\\Projects\\RenderEngine\\assets\\milyway.jpeg"
+DIMUS :: "C:\\Users\\marker_\\Documents\\Projects\\RenderEngine\\assets\\dimus.jpg"

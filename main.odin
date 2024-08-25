@@ -160,7 +160,9 @@ Trace :: proc(ray_ : Ray, depth : i32) -> color {
 
     hit := ClosestHit(ray_)
     if hit.did_hit {
-        c : color = GetPixel(hit.mtl.diffuze, hit.mtl.diffuze.w, hit.mtl.diffuze.h, hit.mtl.diffuze.bytes, hit.uv)
+        c : color 
+        if hit.mtl.diffuze.bytes == 0 && hit.mtl.diffuze2.gen == true do c = Marble(hit.mtl.diffuze2, hit.normal)
+        else do c = GetPixel(hit.mtl.diffuze, hit.mtl.diffuze.w, hit.mtl.diffuze.h, hit.mtl.diffuze.bytes, hit.uv)
         ray : Ray
         ray.time = ray_.time
         intersection := ray_.origin + hit.intersection * ray_.direction
@@ -266,10 +268,10 @@ main :: proc() {
     cam.w = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
     cam.h = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
 
-    cam.defocus_disk = { 
-        0.05,
-        0.05
-    }
+    // cam.defocus_disk = { 
+    //     0.05,
+    //     0.05
+    // }
 
     cam.delta_u = cam.w / f32(WINDOW_W)
     cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT

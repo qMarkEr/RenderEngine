@@ -31,13 +31,13 @@ BasicScene :: proc() -> (spheres : [6]Sphere) {
         spheres[4].center - spheres[4].r,
         spheres[4].center + spheres[4].r
     )
-    t : Texture
-    t.albedo = {1, 0, 1, 0}
-    t.image_data, t.w, t.h, t.bytes = ReadFromFile(PATH)
+    // t : Texture
+    // t.albedo = {1, 0, 1, 0}
+    // t.image_data, t.w, t.h, t.bytes = GeneratePerlin(4)
     spheres[5] = {
         center = {-1, 0, -9},
         r = 1,
-        mtl = {diffuze = t, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5}
+        mtl = {diffuze2 = GeneratePerlin(4), fuzz = 1, type = LAMBERTARIAN, IOR = 1.5}
     }
     spheres[5].bbox = CreateAABB(
         spheres[5].center - spheres[5].r,
@@ -114,10 +114,12 @@ ALotOfSpheres :: proc() -> (spheres : [SPHERE_COUNT]Sphere) {
         prev_c_x = -10
         prev_r_x = -10
     }
+    t : Texture
+    t.image_data, t.w, t.h, t.bytes = ReadFromFile(MILKYWAY)
     spheres[SPHERE_COUNT - 1] = {
         center = {0, -5001, -7},
         r = 5000,
-        mtl = {diffuze = {{0.1, 0.1, 0.1, 1}, nil, 0, 0, 0}, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5},
+        mtl = {diffuze = t, fuzz = 1, type = LAMBERTARIAN, IOR = 1.5},
     }
     spheres[SPHERE_COUNT - 1].bbox = CreateAABB(
         spheres[SPHERE_COUNT - 1].center - spheres[SPHERE_COUNT - 1].r,

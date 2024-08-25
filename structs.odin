@@ -54,6 +54,7 @@ Camera :: struct {
 
 Material :: struct {
 	diffuze : Texture,
+	diffuze2 : Noize,
 	fuzz : f32,
 	type : u8,
 	IOR : f32
@@ -71,4 +72,11 @@ Texture :: struct {
 	albedo : color,
 	image_data : []byte,
 	w, h, bytes : i32
+}
+
+Noize :: struct {
+	rand : [256]Vector3,
+	x, y, z : [256]i32,
+	gen : bool,
+	scale : u8
 }
