@@ -7,7 +7,7 @@ BasicScene :: proc() -> (spheres : [6]Sphere) {
     spheres[3] = {
         center = {0, -5001, -7},
         r = 5000,
-        mtl = {diffuze = {{0.1, 0.1, 0.1, 1}, nil, 0, 0, 0}, fuzz = 0.2, type = METAL, IOR = 1.5},
+        mtl = {diffuze = {{0.1, 0, 0.1, 1}, nil, 0, 0, 0}, fuzz = 0.2, type = LAMBERTARIAN, IOR = 1.5},
     }
     spheres[3].bbox = CreateAABB(
         spheres[3].center - spheres[3].r,
@@ -22,15 +22,15 @@ BasicScene :: proc() -> (spheres : [6]Sphere) {
         spheres[0].center - spheres[0].r,
         spheres[0].center + spheres[0].r
     )
-    spheres[4] = {
-        center = {0, -0.5, -7},
-        r = 0.48,
-        mtl = {diffuze = {{0.1, 0.5, 0.8, 1}, nil, 0, 0, 0}, fuzz = 1, type = DIELECTRIC, IOR = 1 / 1.5}
-    }
-    spheres[4].bbox = CreateAABB(
-        spheres[4].center - spheres[4].r,
-        spheres[4].center + spheres[4].r
-    )
+    // spheres[4] = {
+    //     center = {0, -0.5, -7},
+    //     r = 0.48,
+    //     mtl = {diffuze = {{0.1, 0.5, 0.8, 1}, nil, 0, 0, 0}, fuzz = 1, type = DIELECTRIC, IOR = 1 / 1.5}
+    // }
+    // spheres[4].bbox = CreateAABB(
+    //     spheres[4].center - spheres[4].r,
+    //     spheres[4].center + spheres[4].r
+    // )
     // t : Texture
     // t.albedo = {1, 0, 1, 0}
     // t.image_data, t.w, t.h, t.bytes = GeneratePerlin(4)
@@ -46,7 +46,7 @@ BasicScene :: proc() -> (spheres : [6]Sphere) {
     spheres[1] = {
         center = {-1, -0.75, -5},
         r = 0.25,
-        mtl = {diffuze = {{1, 0, 0, 1}, nil, 0, 0, 0}, fuzz = 0, type = LAMBERTARIAN},
+        mtl = {diffuze = {{1, 1, 1, 1}, nil, 0, 0, 0}, fuzz = 0, type = LAMBERTARIAN, emission = 0},
         isMoving = false,
         // center1 = {-1, -0.75, -5},
         // center2 = {-1, -0.5, -5}
@@ -81,7 +81,7 @@ ALotOfSpheres :: proc() -> (spheres : [SPHERE_COUNT]Sphere) {
                 r = rnd.float32_range(0.25, 3),
                 mtl = {
                     fuzz = clamp(rnd.float32_range(-1, 1), 0, 1),
-                    type = u8(rnd.uint32() % 3),
+                    type = u8(rnd.uint32() % 4),
                     IOR = 1.5
                 }
             }
@@ -89,9 +89,8 @@ ALotOfSpheres :: proc() -> (spheres : [SPHERE_COUNT]Sphere) {
                 albedo = {rnd.float32(), rnd.float32(), rnd.float32(), 1},
                 image_data = nil, w = 0, h = 0, bytes = 0
             }
-            if spheres[i * side_spheres + j].mtl.type == DIELECTRIC do spheres[i * side_spheres + j].mtl.diffuze = t
-            else do spheres[i * side_spheres + j].mtl.diffuze = t
-            
+            spheres[i * side_spheres + j].mtl.diffuze = t
+            if spheres[i * side_spheres + j].mtl.type == EMISSIVE do spheres[i * side_spheres + j].mtl.emission = rnd.float32_range(20, 100)
             if i != 0 {
                 prev_c_z = spheres[(i - 1) * side_spheres + j].center.z
                 prev_r_z = spheres[(i - 1) * side_spheres + j].r
@@ -114,8 +113,10 @@ ALotOfSpheres :: proc() -> (spheres : [SPHERE_COUNT]Sphere) {
         prev_c_x = -10
         prev_r_x = -10
     }
-    t : Texture
-    t.image_data, t.w, t.h, t.bytes = ReadFromFile(MILKYWAY)
+    t : Texture = {
+        albedo = {0.1, 0.1, 0.1, 1},
+        image_data = nil, w = 0, h = 0, bytes = 0
+    }
     spheres[SPHERE_COUNT - 1] = {
         center = {0, -5001, -7},
         r = 5000,

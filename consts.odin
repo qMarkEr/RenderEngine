@@ -9,20 +9,23 @@ FG_COLOR_2 : int = 0x508991
 FG_COLOR_3 : int = 0x172A3A
 BG_COLOR_BOTTOM : int =  0xF95738 //0x423E37 
 
-SPHERE_COUNT :: 401
+SPHERE_COUNT :: 37
 
-space_color_top : color = hex_to_rgba(0x75DDDD)
-space_color_bottom : color = hex_to_rgba(0xFFFFFF)
+grad := ".'`^\",:;Il!i><~+_-?][}{1)(|tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
+
+color_mult :: 255
+space_color_top : color = {0.7, 0.2, 0.1, 1} // hex_to_rgba(0x75DDDD)
+space_color_bottom : color = {0.1, 0.1, 0.1, 1} //  hex_to_rgba(0xFFFFFF)
 
 WINDOW_TITLE :: "backrooms"
 WINDOW_X : i32 = SDL.WINDOWPOS_CENTERED
 WINDOW_Y : i32 = SDL.WINDOWPOS_CENTERED
 
-WINDOW_W : i32 : 720
-WINDOW_H : i32 : 720
+WINDOW_W : i32 : 128
+WINDOW_H : i32 : 128
 BUCKET_SIZE :: WINDOW_W / SIDE
-SIDE :: 10
-ASPECT : f32 : f32(WINDOW_W) / f32(WINDOW_H)
+SIDE :: 16
+ASPECT : f32 : f32(WINDOW_W) / f32(WINDOW_H) //* 0.6
 
 WINDOW_FLAGS  :: SDL.WINDOW_SHOWN
 
@@ -34,6 +37,7 @@ THREADS := SIDE * SIDE //os.processor_core_count()
 LAMBERTARIAN :: 0
 METAL :: 1
 DIELECTRIC :: 2
+EMISSIVE :: 3
 
 vup : Vector3 : {0, 1, 0}
 

@@ -9,18 +9,18 @@ import rnd "core:math/rand"
 
 hex_to_rgba :: proc(hex : int) -> color { 
 	return {
-		f32(hex >> 16) / 255.0,
-		f32((hex & 0x00FF00) >> 8) / 255.0,
-		f32(hex & 0x0000FF) / 255.0,
+		f32(hex >> 16) / color_mult,
+		f32((hex & 0x00FF00) >> 8) / color_mult,
+		f32(hex & 0x0000FF) / color_mult,
 		1.0
 	}
 }
 
 expand :: proc (c : color) -> (r, g, b, a : u8) {
-	return u8(M.round(c.r * 255)),
-		   u8(M.round(c.g * 255)),
-		   u8(M.round(c.b * 255)),
-		   u8(M.round(c.a * 255))
+	return u8(M.round(c.r * color_mult)),
+		   u8(M.round(c.g * color_mult)),
+		   u8(M.round(c.b * color_mult)),
+		   u8(M.round(c.a * color_mult))
 }
 
 LinearToGamma :: proc(comp : f32) -> f32 {
@@ -267,12 +267,12 @@ ProgressBar :: proc(progress : i32) {
     percent : f32 = f32(progress) / f32(cam.samples)
     part := i32(percent * FULL_BAR)
 
-    SDL.SetRenderDrawColor(renderer, 100, 100, 100, 255)
+    SDL.SetRenderDrawColor(renderer, 100, 100, 100, color_mult)
     rect : SDL.Rect = {x = START - 2, y = START -2, h = WIDTH + 4, w = FULL_BAR + 4}
     SDL.RenderDrawRect(renderer, &rect)
     
-    if part == FULL_BAR do SDL.SetRenderDrawColor(renderer, 0, 255, 0, 255)
-    else do SDL.SetRenderDrawColor(renderer, 255, 0, 0, 255)
+    if part == FULL_BAR do SDL.SetRenderDrawColor(renderer, 0, color_mult, 0, color_mult)
+    else do SDL.SetRenderDrawColor(renderer, color_mult, 0, 0, color_mult)
 
     for i in 0..<part {
         for j in 0..<WIDTH {

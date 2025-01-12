@@ -72,7 +72,7 @@ DrawAxis :: proc(renderer : ^SDL.Renderer, x_end : Vector3 , cam : Camera) {
 	NDC_x.x += AXIS_OFFSET
 	NDC_x.y += AXIS_OFFSET
 
-	SDL.SetRenderDrawColor(renderer, u8(255 * x_end.x), u8(255 * x_end.y), u8(255 * x_end.z), 255)
+	SDL.SetRenderDrawColor(renderer, u8(color_mult * x_end.x), u8(color_mult * x_end.y), u8(color_mult * x_end.z), color_mult)
 	Interpolate(renderer, ConvertNDCToRaster(NDC_start), ConvertNDCToRaster(NDC_x))
 }
 
@@ -135,7 +135,7 @@ DrawLineForAABB :: proc(point_a, point_b : Vector3) {
 
     s := ConvertNDCToRaster(NDC_end)
     e := ConvertNDCToRaster(NDC_start)
-    SDL.SetRenderDrawColor(renderer, 255, 0, 0, 255)
+    SDL.SetRenderDrawColor(renderer, color_mult, 0, 0, color_mult)
     SDL.RenderDrawLine(renderer, e.x, e.y, s.x, s.y)
 }
 
@@ -155,6 +155,7 @@ ClosestHit :: proc(ray : Ray) -> (hit : HitInfo) {
     _ = HitNode(&root_node, ray, {-999, 99999}, &hit)
     return
 }
+
 Trace :: proc(ray_ : Ray, depth : i32) -> color {
     if depth > MAX_BOUNCE do return {0, 0, 0, 1}
 
@@ -187,7 +188,10 @@ Trace :: proc(ray_ : Ray, depth : i32) -> color {
             refl = Trace(refl_ray, depth + 1)
             return (refl * kr + refr * (1 - kr))
         }
-        return Trace(ray, depth + 1) * c
+        if hit.mtl.type == EMISSIVE {
+            return hit.mtl.diffuze.albedo
+        }
+        return Trace(ray, depth + 1) * c + hit.mtl.emission * hit.mtl.diffuze.albedo
     }
     return BG_shader(ray_)
 }
@@ -244,34 +248,37 @@ MultitheadRayThrower :: proc(threadPool : ^[dynamic]^thread.Thread) {
 
 main :: proc() {
 
-    window = SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H, WINDOW_FLAGS)
+    window = SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, 1024, 1024, WINDOW_FLAGS | SDL.WINDOW_RESIZABLE)
     renderer = SDL.CreateRenderer(
         window,
         -1,
         SDL.RENDERER_PRESENTVSYNC | SDL.RENDERER_ACCELERATED | SDL.RENDERER_TARGETTEXTURE
     )
+    SDL.SetHint(SDL.HINT_RENDER_SCALE_QUALITY, "0"); // Nearest neighbor filtering
+    SDL.RenderSetLogicalSize(renderer, WINDOW_W, WINDOW_H);
+    SDL.RenderSetIntegerScale(renderer, true);
     defer { 
         SDL.DestroyWindow(window)
         SDL.Quit()
     }
 
     cam = {
-        origin = {0, 0, 11},
+        origin = {0, 0, 0},
         focus_distance = 17.63,
         fl = 35,
         angle_y = DegToRad(0),
         angle_x = DegToRad(0),
-        samples = 256,
+        samples = 1024,
         apperture = 8
     }
 
     cam.w = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
     cam.h = 2 * M.tan_f32(DegToRad(cam.fl * 0.5)) * cam.focus_distance
 
-    // cam.defocus_disk = { 
-    //     0.05,
-    //     0.05
-    // }
+    cam.defocus_disk = { 
+        0.1,
+        0.1
+    }
 
     cam.delta_u = cam.w / f32(WINDOW_W)
     cam.delta_v = cam.w / f32(WINDOW_H) / ASPECT
@@ -295,30 +302,39 @@ main :: proc() {
     defer delete(threadPool)
 
     looooop : for {
+        // fmt.print("\033[H")
         if samples != cam.samples {
             start_time := SDL.GetTicks()
             MultitheadRayThrower(&threadPool)
-            for i in 0..=WINDOW_W {
-                for j in 0..=WINDOW_H {
+            for i in 0..=WINDOW_H {
+                for j in 0..=WINDOW_W {
                     c : color = {
-                        clamp(LinearToGamma(frame[i][j].r / f32(samples)), 0, 1),
-                        clamp(LinearToGamma(frame[i][j].g / f32(samples)), 0, 1),
-                        clamp(LinearToGamma(frame[i][j].b / f32(samples)), 0, 1),
+                        clamp(LinearToGamma(frame[j][i].r / f32(samples)), 0, 1),
+                        clamp(LinearToGamma(frame[j][i].g / f32(samples)), 0, 1),
+                        clamp(LinearToGamma(frame[j][i].b / f32(samples)), 0, 1),
                         1
                     }
+                    bw := 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
+                    // c.r = bw
+                    // c.g = bw
+                    // c.b = bw
+                    // index : i32 = i32(linalg.floor((0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) * (color_mult - 2)))
+                    // fmt.print(rune(grad[index]))
                     SDL.SetRenderDrawColor(renderer, expand(c))
                     SDL.RenderDrawPoint(
                         renderer,
-                        i32(i),
-                        i32(j)
+                        i32(j),
+                        i32(i)
                     )
                 }
+                // fmt.println()
             }
             samples += 1
-            ProgressBar(samples)
+            // ProgressBar(samples)
             SDL.RenderPresent(renderer)
             fps += 1000.0 / f32(SDL.GetTicks() - start_time)
-            fmt.println("fps:", 1000.0 / f32(SDL.GetTicks() - start_time), "avg:", fps / f32(samples - 1))
+            // break looooop
+           fmt.println("fps:", 1000.0 / f32(SDL.GetTicks() - start_time), "avg:", fps / f32(samples - 1))
         }
         SDL.RenderPresent(renderer)
 		for SDL.PollEvent(&event) {

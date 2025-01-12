@@ -10,14 +10,14 @@ ReadFromFile :: proc(fname : cstring) -> (bdata : []byte, w, h, channels : i32) 
 	bdata  = make([]byte, total)
 	for i in 0..<total {
 		if fdata[i] == 0 do bdata[i] = 0
-		else if fdata[i] == 1 do bdata[i] = 255.0
+		else if fdata[i] == 1 do bdata[i] = color_mult
 		else do bdata[i] = u8(linalg.floor(fdata[i] * 256.0))
 	}
 	return
 }
 
 GetPixel :: proc(t : Texture, w, h, channels : i32, uv : Vector2) -> color {
-	scale :: 1.0 / 255.0
+	scale :: 1.0 / color_mult
 	if t.image_data == nil do return t.albedo
 	i, j : i32 = i32(uv.x * f32(w)), i32((1.0 - uv.y) * f32(h))
 	i, j = clamp(0, i, w - 1), clamp(0, j, h - 1)
@@ -58,9 +58,9 @@ GetPerlinPixel :: proc(t : Noize, p_ : Vector3) -> f32 {
 		for dj in 0..<2 {
 			for dk in 0..<2 {
 				c[di][dj][dk] = t.rand[
-					t.x[(i + i32(di)) & 255] ~
-					t.x[(j + i32(dj)) & 255] ~
-					t.x[(k + i32(dk)) & 255]]
+					t.x[(i + i32(di)) & color_mult] ~
+					t.x[(j + i32(dj)) & color_mult] ~
+					t.x[(k + i32(dk)) & color_mult]]
 			}
 		}	
 	}

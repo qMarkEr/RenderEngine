@@ -57,7 +57,8 @@ Material :: struct {
 	diffuze2 : Noize,
 	fuzz : f32,
 	type : u8,
-	IOR : f32
+	IOR : f32,
+	emission : f32
 }
 
 HitInfo :: struct {
