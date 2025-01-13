@@ -100,16 +100,17 @@ ClosestHit :: proc(objs : [SPHERE_COUNT]Sphere, ray : Ray) -> (hit : HitInfo) {
 
 Trace :: proc(ray_ : Ray, spheres : [SPHERE_COUNT]Sphere, depth : i32) -> color {
     if depth > MAX_BOUNCE do return {0, 0, 0, 1}
-
+    
     hit := ClosestHit(spheres, ray_)
     if hit.did_hit {
+        if hit.mtl.diffuze == {0, 0, 0, 1} do return {0, 0, 0, 1}
         ray : Ray
         kr := Fresnel(ray_.direction, hit.normal, hit.mtl.IOR)
+        spec : Ray = Reflect(ray_, hit.normal, hit.intersection)
         refr, refl : color
         diff : Ray = Refract(ray_.direction, hit.normal, hit.intersection, hit.mtl.IOR)
-        spec : Ray = Reflect(ray_, hit.normal, hit.intersection)
 
-        if kr < 1 - hit.mtl.metallic {
+        if kr < 1 {
             diff.direction = linalg.lerp(
                 RandomReflect(ray_, hit.normal, hit.intersection).direction,
                 diff.direction,
@@ -202,8 +203,6 @@ OneThreadRayThrower :: proc () {
     }
 }
 
-
-
 MultitheadRayThrower :: proc() {
     threadPool := make([dynamic]^thread.Thread, 0, THREADS)
     defer delete(threadPool)
@@ -250,8 +249,6 @@ MultitheadRayThrower :: proc() {
     SDL.RenderPresent(renderer)
 }
 
-
-
 main :: proc() {
     cam = {
 		origin = {-1, 2, 0},
@@ -285,10 +282,10 @@ main :: proc() {
         r = 0.5,
         mtl = {
             diffuze = {0, 0, 0, 1},
-            fuzz = 0.5, 
+            fuzz = 0.0, 
             IOR = 1.5,
             transmission = 0.0,
-            metallic = 0
+            metallic = 1
         }
     }
     spheres[2] = {
