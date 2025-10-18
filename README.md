@@ -17,4 +17,4 @@ Run `odin run .`
 
 ***
 ## Preview
-![preview image](assets/example.png "example of program")
+![preview image](assets/example.png "example of runnning program")
