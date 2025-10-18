@@ -248,7 +248,7 @@ MultitheadRayThrower :: proc(threadPool : ^[dynamic]^thread.Thread) {
 
 main :: proc() {
 
-    window = SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, 1024, 1024, WINDOW_FLAGS | SDL.WINDOW_RESIZABLE)
+    window = SDL.CreateWindow(WINDOW_TITLE, WINDOW_X, WINDOW_Y, WINDOW_W, WINDOW_H, WINDOW_FLAGS)
     renderer = SDL.CreateRenderer(
         window,
         -1,
